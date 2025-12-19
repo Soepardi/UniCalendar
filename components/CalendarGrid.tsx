@@ -34,14 +34,14 @@ const MonthView = () => {
                 </h2>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => setDate(addMonths(currentDate, -1))}
+                        onClick={() => setDate(startOfMonth(addMonths(currentDate, -1)))}
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
                         title="Previous Month"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <button
-                        onClick={() => setDate(addMonths(currentDate, 1))}
+                        onClick={() => setDate(startOfMonth(addMonths(currentDate, 1)))}
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
                         title="Next Month"
                     >
