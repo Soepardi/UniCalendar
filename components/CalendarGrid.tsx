@@ -37,8 +37,15 @@ const MonthView = () => {
     return (
         <div className="bg-white rounded-3xl p-8 border border-[#dadce0]">
             <div className="flex items-center justify-between mb-8 px-2">
-                <h2 className="text-2xl font-medium text-[#202124] tracking-tight">
-                    {primaryCurrentData.month} {primaryCurrentData.year}
+                <h2 className="flex flex-col text-[#202124] tracking-tight">
+                    {primaryCurrentData.fullDateNative && primaryCurrentData.fullDateNative !== primaryCurrentData.fullDate && (
+                        <span className="text-sm font-normal text-[#5f6368] mb-0.5">
+                            {primaryCurrentData.fullDateNative.split(' ')[1]} {primaryCurrentData.fullDateNative.split(' ')[2]}
+                        </span>
+                    )}
+                    <span className="text-2xl font-medium">
+                        {primaryCurrentData.month} {primaryCurrentData.year}
+                    </span>
                 </h2>
                 <div className="flex items-center gap-2">
                     <button
