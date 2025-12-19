@@ -46,5 +46,5 @@ const createIntlConverter = (
 export const getSakaDate = createIntlConverter('saka', 'en-IN', 'hi-IN', 'indian');
 export const getHebrewDate = createIntlConverter('hebrew', 'en-US', 'he-IL', 'hebrew');
 export const getPersianDate = createIntlConverter('persian', 'en-US', 'fa-IR', 'persian');
-export const getBuddhistDate = createIntlConverter('buddhist', 'th-TH-u-ca-buddhist-nu-latn', 'th-TH', 'buddhist');
+
 export const getJapaneseDate = createIntlConverter('japanese', 'en-JP-u-ca-japanese', 'ja-JP-u-ca-japanese', 'japanese');

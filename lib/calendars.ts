@@ -2,7 +2,8 @@ import { format } from 'date-fns';
 import { getHijriDate } from './converters/hijri';
 import { getJavaneseDate } from './converters/javanese';
 import { getChineseDate } from './converters/chinese';
-import { getSakaDate, getHebrewDate, getPersianDate, getBuddhistDate } from './converters/standard-intl';
+import { getSakaDate, getHebrewDate, getPersianDate } from './converters/standard-intl';
+import { getBuddhistDate } from './converters/buddhist';
 import { getBalineseDate } from './converters/balinese';
 import { getMayanDate } from './converters/mayan';
 // Will import Balinese/Mayan later
