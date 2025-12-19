@@ -18,6 +18,14 @@ import {
 const MonthView = () => {
     const { currentDate, selectedCalendars, setDate, setViewMode } = useCalendarStore();
 
+    // Determine Primary Calendar (Gregorian if selected/default, otherwise the first selected)
+    const primaryCalendarId = selectedCalendars.includes('gregorian') || selectedCalendars.length === 0
+        ? 'gregorian'
+        : selectedCalendars[0];
+
+    // Get Primary Calendar Data for Current Heading
+    const primaryCurrentData = convertDate(currentDate, primaryCalendarId as CalendarType);
+
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
     const startDate = startOfWeek(monthStart);
@@ -30,7 +38,7 @@ const MonthView = () => {
         <div className="bg-white rounded-3xl p-8 border border-[#dadce0]">
             <div className="flex items-center justify-between mb-8 px-2">
                 <h2 className="text-2xl font-medium text-[#202124] tracking-tight">
-                    {format(currentDate, 'MMMM yyyy')}
+                    {primaryCurrentData.month} {primaryCurrentData.year}
                 </h2>
                 <div className="flex items-center gap-2">
                     <button
@@ -66,6 +74,9 @@ const MonthView = () => {
                     const isToday = isSameDay(date, realToday);
                     const isSelected = isSameDay(date, currentDate);
 
+                    // Get Primary Date Data for this cell
+                    const primaryDateData = convertDate(date, primaryCalendarId as CalendarType);
+
                     // Check for holidays across all active calendars for this specific date
                     const dayHolidays = selectedCalendars.map(id => convertDate(date, id as CalendarType).holiday).filter(Boolean);
                     const hasHoliday = dayHolidays.length > 0;
@@ -95,19 +106,21 @@ const MonthView = () => {
                                             ? 'text-[#1a73e8]'
                                             : 'text-[#202124]'
                                     }`}>
-                                    <div className={`w-7 h-7 flex items-center justify-center rounded-full transition-all ${isToday
+                                    <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${isToday
                                         ? 'bg-[#1a73e8] ring-4 ring-[#1a73e8]/20'
                                         : isSelected
                                             ? 'ring-2 ring-[#1a73e8]/30'
                                             : ''
                                         }`}>
-                                        {format(date, 'd')}
+                                        {/* Display Primary Calendar Day */}
+                                        {primaryDateData.day}
                                     </div>
                                 </span>
                             </div>
 
                             <div className="space-y-1 mt-auto">
-                                {selectedCalendars.filter(id => id !== 'gregorian').slice(0, 3).map(calId => {
+                                {/* Exclude Primary Calendar from the small list */}
+                                {selectedCalendars.filter(id => id !== primaryCalendarId).slice(0, 3).map(calId => {
                                     const data = convertDate(date, calId as CalendarType);
                                     return (
                                         <div key={calId} className="flex flex-col gap-0.5 overflow-hidden">
