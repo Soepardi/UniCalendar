@@ -1,7 +1,6 @@
 'use client';
 import dynamic from "next/dynamic";
 import { useLanguageStore } from '@/store/useLanguageStore';
-import { LanguageSelector } from "@/components/LanguageSelector";
 
 const CalendarGrid = dynamic(
   () => import("@/components/CalendarGrid").then((mod) => mod.CalendarGrid),
@@ -22,10 +21,7 @@ export default function Home() {
 
   return (
     <div className="space-y-24 pt-8">
-      {/* Header / Language Selector */}
-      <div className="flex justify-end px-4 md:px-0">
-        <LanguageSelector />
-      </div>
+
 
       {/* Main Grid Section */}
       <div className="relative">
