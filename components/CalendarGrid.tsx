@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { useCalendarStore } from '@/store/useCalendarStore';
-import { CalendarType, convertDate, CALENDAR_META } from '@/lib/calendars';
+import { useLanguageStore } from '@/store/useLanguageStore';
+import { CalendarType, convertDate } from '@/lib/calendars';
 import {
-    format,
     startOfMonth,
     endOfMonth,
     eachDayOfInterval,
@@ -12,11 +12,14 @@ import {
     endOfWeek,
     isSameDay,
     addMonths,
-    addDays
+    addDays,
+    format
 } from 'date-fns';
 
 const MonthView = () => {
     const { currentDate, selectedCalendars, setDate, setViewMode } = useCalendarStore();
+    const { getLocale, translations } = useLanguageStore();
+    const locale = getLocale();
 
     // Determine Primary Calendar (Gregorian if selected/default, otherwise the first selected)
     const primaryCalendarId = selectedCalendars.includes('gregorian') || selectedCalendars.length === 0
@@ -24,15 +27,21 @@ const MonthView = () => {
         : selectedCalendars[0];
 
     // Get Primary Calendar Data for Current Heading
-    const primaryCurrentData = convertDate(currentDate, primaryCalendarId as CalendarType);
+    const primaryCurrentData = convertDate(currentDate, primaryCalendarId as CalendarType, { locale });
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart);
-    const endDate = endOfWeek(monthEnd);
+    const startDate = startOfWeek(monthStart, { locale }); // Pass locale for correct week start
+    const endDate = endOfWeek(monthEnd, { locale });
 
     const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
     const realToday = new Date();
+
+    // Format weekday names
+    const weekDays = eachDayOfInterval({
+        start: startOfWeek(realToday, { locale }),
+        end: endOfWeek(startOfWeek(realToday, { locale }), { locale })
+    }).map(day => format(day, 'EEE', { locale }));
 
     return (
         <div className="bg-white rounded-3xl p-8 border border-[#dadce0]">
@@ -44,6 +53,7 @@ const MonthView = () => {
                         </span>
                     )}
                     <span className="text-2xl font-medium">
+                        {/* Use translated/formatted month/year */}
                         {primaryCurrentData.month} {primaryCurrentData.year}
                     </span>
                 </h2>
@@ -51,27 +61,27 @@ const MonthView = () => {
                     <button
                         onClick={() => setDate(startOfMonth(addMonths(currentDate, -1)))}
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
-                        title="Previous Month"
+                        title={translations.common.previous_month}
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <button
                         onClick={() => setDate(startOfMonth(addMonths(currentDate, 1)))}
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
-                        title="Next Month"
+                        title={translations.common.next_month}
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <button
                         onClick={() => setDate(new Date())}
                         className="ml-2 px-4 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#e8f0fe] rounded-full transition-all"
                     >
-                        Today
+                        {translations.common.today}
                     </button>
                 </div>
             </div>
             <div className="grid grid-cols-7 gap-1">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                {weekDays.map(day => (
                     <div key={day} className="text-center text-xs font-medium text-[#5f6368] py-4">
                         {day}
                     </div>
@@ -82,10 +92,10 @@ const MonthView = () => {
                     const isSelected = isSameDay(date, currentDate);
 
                     // Get Primary Date Data for this cell
-                    const primaryDateData = convertDate(date, primaryCalendarId as CalendarType);
+                    const primaryDateData = convertDate(date, primaryCalendarId as CalendarType, { locale });
 
                     // Check for holidays across all active calendars for this specific date
-                    const dayHolidays = selectedCalendars.map(id => convertDate(date, id as CalendarType).holiday).filter(Boolean);
+                    const dayHolidays = selectedCalendars.map(id => convertDate(date, id as CalendarType, { locale }).holiday).filter(Boolean);
                     const hasHoliday = dayHolidays.length > 0;
 
                     return (
@@ -128,7 +138,7 @@ const MonthView = () => {
                             <div className="space-y-1 mt-auto">
                                 {/* Exclude Primary Calendar from the small list */}
                                 {selectedCalendars.filter(id => id !== primaryCalendarId).slice(0, 3).map(calId => {
-                                    const data = convertDate(date, calId as CalendarType);
+                                    const data = convertDate(date, calId as CalendarType, { locale });
                                     return (
                                         <div key={calId} className="flex flex-col gap-0.5 overflow-hidden">
                                             <div className="flex items-center gap-1.5 ">
@@ -161,6 +171,8 @@ const MonthView = () => {
 
 export const CalendarGrid = () => {
     const { currentDate, selectedCalendars, showNativeScript, viewMode, setDate, setViewMode } = useCalendarStore();
+    const { getLocale, translations } = useLanguageStore();
+    const locale = getLocale();
 
     if (viewMode === 'month') {
         return (
@@ -170,7 +182,7 @@ export const CalendarGrid = () => {
         );
     }
 
-    const allDayHolidays = selectedCalendars.map(id => convertDate(currentDate, id as CalendarType).holiday).filter(Boolean);
+    const allDayHolidays = selectedCalendars.map(id => convertDate(currentDate, id as CalendarType, { locale }).holiday).filter(Boolean);
     const hasAnyHoliday = allDayHolidays.length > 0;
 
     return (
@@ -178,31 +190,31 @@ export const CalendarGrid = () => {
             {/* Day View Navigation Header */}
             <div className="flex items-center justify-between mb-2 px-2 p-6">
                 <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-[#1a73e8] uppercase tracking-widest mb-1">Date</span>
+                    <span className="text-[10px] font-bold text-[#1a73e8] uppercase tracking-widest mb-1">{translations.home.date_label}</span>
                     <h3 className="text-2xl font-medium text-[#202124] tracking-tight">
-                        {format(currentDate, 'EEEE, d MMMM yyyy')}
+                        {format(currentDate, 'EEEE, d MMMM yyyy', { locale })}
                     </h3>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setDate(addDays(currentDate, -1))}
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
-                        title="Previous Day"
+                        title={translations.common.previous_day}
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <button
                         onClick={() => setDate(addDays(currentDate, 1))}
                         className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
-                        title="Next Day"
+                        title={translations.common.next_day}
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <button
                         onClick={() => setDate(new Date())}
                         className="ml-2 px-4 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#e8f0fe] rounded-full transition-all"
                     >
-                        Today
+                        {translations.common.today}
                     </button>
                 </div>
             </div>
@@ -220,7 +232,7 @@ export const CalendarGrid = () => {
                                 🎊
                             </div>
                             <div>
-                                <span className="text-[10px] font-bold text-[#d93025] uppercase tracking-[0.2em] mb-2 block">Yay it's a holiday!</span>
+                                <span className="text-[10px] font-bold text-[#d93025] uppercase tracking-[0.2em] mb-2 block">{translations.common.holiday_cheer}</span>
                                 <h3 className="text-3xl font-medium text-[#202124] tracking-tight">
                                     {allDayHolidays.join(' • ')}
                                 </h3>
@@ -232,7 +244,7 @@ export const CalendarGrid = () => {
                                 "May your happiness be large and your bills be small."
                             </p>
                             <p className="text-[10px] text-[#d93025]/60 font-medium mt-2 uppercase tracking-wider">
-                                Calendars viewed : {selectedCalendars.length} types
+                                {translations.common.calendars_viewed} : {selectedCalendars.length} types
                             </p>
                         </div>
                     </div>
@@ -242,8 +254,11 @@ export const CalendarGrid = () => {
             <div id="calendar-grid-export" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {selectedCalendars.map((calId) => {
                     const type = calId as CalendarType;
-                    const data = convertDate(currentDate, type);
-                    const meta = CALENDAR_META[type];
+                    const data = convertDate(currentDate, type, { locale });
+                    // Use translated strings for name and description
+                    const metaName = translations.calendar_names[type];
+                    const metaDesc = translations.calendar_descriptions[type];
+
                     const displayDate = (showNativeScript && data.fullDateNative) ? data.fullDateNative : data.fullDate;
 
                     return (
@@ -257,10 +272,10 @@ export const CalendarGrid = () => {
                             <div className="flex justify-between items-start mb-8">
                                 <div>
                                     <h3 className="text-lg font-medium text-[#202124] leading-tight mb-1">
-                                        {meta.name}
+                                        {metaName}
                                     </h3>
                                     <p className="text-xs text-[#5f6368] leading-tight">
-                                        {meta.description}
+                                        {metaDesc}
                                     </p>
                                 </div>
                                 <div className="w-10 h-10 rounded-xl bg-[#f8f9fa] border border-[#dadce0] flex items-center justify-center text-[#5f6368]">

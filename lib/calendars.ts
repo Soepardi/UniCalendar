@@ -34,20 +34,22 @@ export interface CalendarDateResult {
     nativeData?: any;
 }
 
-export const convertDate = (date: Date, type: CalendarType): CalendarDateResult => {
+export const convertDate = (date: Date, type: CalendarType, options?: { locale?: any }): CalendarDateResult => {
     switch (type) {
         case 'gregorian': {
             const hDay = date.getDate();
-            const hMonth = format(date, 'MMMM');
+            // Use the passed locale for month name if available, otherwise default to English (which format uses by default if undefined, but we want to be explicit)
+            const hMonth = format(date, 'MMMM', { locale: options?.locale });
             const { getHoliday } = require('./holidays');
+
             return {
                 type,
                 day: hDay,
                 month: hMonth,
                 year: date.getFullYear(),
-                fullDate: format(date, 'EEEE, d MMMM yyyy'),
-                fullDateNative: format(date, 'EEEE, d MMMM yyyy'),
-                holiday: getHoliday('gregorian', hMonth, hDay)
+                fullDate: format(date, 'EEEE, d MMMM yyyy', { locale: options?.locale }),
+                fullDateNative: format(date, 'EEEE, d MMMM yyyy', { locale: options?.locale }),
+                holiday: getHoliday('gregorian', format(date, 'MMMM'), hDay) // Holidays might still rely on English month names? Need to check holidays.ts
             };
         }
 
