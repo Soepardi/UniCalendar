@@ -9,13 +9,11 @@ import {
     isSameDay,
     format
 } from 'date-fns';
-import { convertDate, CalendarType } from '@/lib/calendars';
+import { convertDate, CalendarType, toNativeNumerals } from '@/lib/calendars';
 import { enUS, zhCN, id, arSA, faIR, he, th, ja, ko } from 'date-fns/locale';
 
-// Register Fonts (using standard fonts for now to ensure speed, can embed custom fonts later)
-// Note: @react-pdf/renderer supports registering fonts from URL or local file
-// Register Fonts via jsDelivr CDN
-// Outfit (Default/Latin)
+// Register Fonts (using @fontsource WOFFs which are stable for PDF generation)
+// Outfit (Latin)
 Font.register({
     family: 'Outfit',
     fonts: [
@@ -24,25 +22,7 @@ Font.register({
     ]
 });
 
-// Noto Sans SC (Simplified Chinese)
-Font.register({
-    family: 'Noto Sans SC',
-    src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@latest/files/noto-sans-sc-chinese-simplified-400-normal.woff'
-});
-
-// Noto Sans JP (Japanese)
-Font.register({
-    family: 'Noto Sans JP',
-    src: 'https://cdn.jsdelivr.net/npm/fontsource-noto-sans-jp@4.0.0/files/noto-sans-jp-japanese-400-normal.woff'
-});
-
-// Noto Sans KR (Korean)
-Font.register({
-    family: 'Noto Sans KR',
-    src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-kr@4.0.0/files/noto-sans-kr-korean-400-normal.woff'
-});
-
-// Noto Sans Arabic (Arabic, Persian)
+// Noto Sans Arabic (Arabic)
 Font.register({
     family: 'Noto Sans Arabic',
     src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-arabic@latest/files/noto-sans-arabic-arabic-400-normal.woff'
@@ -54,10 +34,34 @@ Font.register({
     src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-hebrew@latest/files/noto-sans-hebrew-hebrew-400-normal.woff'
 });
 
+// Noto Sans SC (Simplified Chinese)
+Font.register({
+    family: 'Noto Sans SC',
+    src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@latest/files/noto-sans-sc-chinese-simplified-400-normal.woff'
+});
+
+// Noto Sans JP (Japanese)
+Font.register({
+    family: 'Noto Sans JP',
+    src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-jp@latest/files/noto-sans-jp-japanese-400-normal.woff'
+});
+
+// Noto Sans KR (Korean)
+Font.register({
+    family: 'Noto Sans KR',
+    src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-kr@latest/files/noto-sans-kr-korean-400-normal.woff'
+});
+
 // Noto Sans Thai (Thai)
 Font.register({
     family: 'Noto Sans Thai',
     src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-thai@latest/files/noto-sans-thai-thai-400-normal.woff'
+});
+
+// Noto Sans Javanese (Javanese)
+Font.register({
+    family: 'Noto Sans Javanese',
+    src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-javanese@latest/files/noto-sans-javanese-javanese-400-normal.woff'
 });
 
 const getFontFamily = (localeCode: string) => {
@@ -67,6 +71,17 @@ const getFontFamily = (localeCode: string) => {
     if (localeCode.startsWith('ar') || localeCode.startsWith('fa')) return 'Noto Sans Arabic';
     if (localeCode.startsWith('he')) return 'Noto Sans Hebrew';
     if (localeCode.startsWith('th')) return 'Noto Sans Thai';
+    return 'Outfit';
+};
+
+const getFontForCalendar = (type: CalendarType) => {
+    if (['hijri', 'islamic', 'islamic-umalqura', 'islamic-civil', 'islamic-tbla', 'persian'].includes(type)) return 'Noto Sans Arabic';
+    if (type === 'hebrew') return 'Noto Sans Hebrew';
+    if (type === 'chinese') return 'Noto Sans SC';
+    if (type === 'japanese') return 'Noto Sans JP';
+    if (type === 'korean') return 'Noto Sans KR';
+    if (type === 'buddhist') return 'Noto Sans Thai';
+    if (type === 'javanese') return 'Noto Sans Javanese';
     return 'Outfit';
 };
 
@@ -115,21 +130,21 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     headerText: {
-        fontSize: 10,
+        fontSize: 12, // Increased from 10
         color: '#202124',
         textTransform: 'uppercase',
         fontWeight: 'bold',
     },
     cell: {
         width: '14.28%',
-        height: 60, // Reduced from 75 to fit 6 rows
-        padding: 4, // Reduced padding
-        borderTopWidth: 1, // Subtle separators
+        height: 55, // Reduced from 60 to fit 6 rows nicely
+        padding: 4,
+        borderTopWidth: 1,
         borderColor: '#f1f3f4',
         position: 'relative',
     },
     dayNumber: {
-        fontSize: 18, // Much larger date number
+        fontSize: 16, // Reduced from 18
         color: '#202124',
         marginBottom: 2, // Reduced margin
         textAlign: 'right',
@@ -161,9 +176,10 @@ interface CalendarDocumentProps {
     translations: any;
     locale: any;
     logoUrl?: string;
+    showNativeScript?: boolean;
 }
 
-export const CalendarDocument = ({ dates, selectedCalendars, translations, locale, logoUrl }: CalendarDocumentProps) => {
+export const CalendarDocument = ({ dates, selectedCalendars, translations, locale, logoUrl, showNativeScript = false }: CalendarDocumentProps) => {
     // Logic extracted from MonthView
     // Logic should match MonthView: Use first selected as primary
     const primaryCalendarId = selectedCalendars.length > 0 ? selectedCalendars[0] : 'gregorian';
@@ -188,25 +204,70 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
 
                 const startDate = startOfWeek(monthStart, { locale, weekStartsOn: 0 });
                 const endDate = endOfWeek(monthEnd, { locale, weekStartsOn: 0 });
-
                 const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
-                const weekDays = eachDayOfInterval({
-                    start: startOfWeek(new Date(), { locale, weekStartsOn: 0 }),
-                    end: endOfWeek(startOfWeek(new Date(), { locale, weekStartsOn: 0 }), { locale, weekStartsOn: 0 })
-                }).map(day => format(day, 'EEE', { locale }));
+
+                // Generate Week Days (Native or Standard)
+                const weekStart = startOfWeek(new Date(), { locale, weekStartsOn: 0 });
+                const weekEnd = endOfWeek(weekStart, { locale, weekStartsOn: 0 });
+                const weekInterval = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+                const weekDays = weekInterval.map(day => {
+                    if (showNativeScript) {
+                        try {
+                            // Map calendar type to native locale for weekdays
+                            let nativeLocaleCode = 'en-US';
+                            if (['hijri', 'islamic', 'islamic-umalqura', 'islamic-civil', 'islamic-tbla'].includes(primaryCalendarId)) nativeLocaleCode = 'ar-SA';
+                            else if (primaryCalendarId === 'persian') nativeLocaleCode = 'fa-IR';
+                            else if (primaryCalendarId === 'hebrew') nativeLocaleCode = 'he';
+                            else if (primaryCalendarId === 'chinese') nativeLocaleCode = 'zh-CN';
+                            else if (primaryCalendarId === 'japanese') nativeLocaleCode = 'ja-JP';
+                            else if (primaryCalendarId === 'korean') nativeLocaleCode = 'ko-KR';
+                            else if (primaryCalendarId === 'buddhist') nativeLocaleCode = 'th-TH'; // Thai
+                            else if (primaryCalendarId === 'javanese') nativeLocaleCode = 'jv-Latn'; // Or local mapping if Javanese script needed
+
+                            // Special handling for Javanese if script is needed, otherwise use locale
+                            if (primaryCalendarId === 'javanese') {
+                                // Javanese native script days: ꦄꦲꦢ꧀, ꦱꦼꦤꦺꦤ꧀, ...
+                                const javaneseDays = ["ꦄꦲꦢ꧀", "ꦱꦼꦤꦺꦤ꧀", "ꦱꦼꦭꦱ", "ꦉꦧꦺꦴ", "ꦏꦩꦶꦱ꧀", "ꦗꦸꦩꦸꦮꦃ", "ꦱꦼꦠꦸ"];
+                                return javaneseDays[day.getDay()];
+                            }
+
+                            return new Intl.DateTimeFormat(nativeLocaleCode, { weekday: 'short' }).format(day);
+                        } catch (e) {
+                            return format(day, 'EEE', { locale });
+                        }
+                    }
+                    return format(day, 'EEE', { locale });
+                });
 
                 return (
                     <Page key={pageIndex} size="A4" orientation="landscape" style={{ ...styles.page, fontFamily: getFontFamily(locale?.code || 'en-US') }}>
                         {/* Header */}
+                        {/* Header */}
                         <View style={styles.header}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            {/* Centered Container Concept */}
+                            <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: logoUrl ? 'flex-start' : 'center', gap: 12 }}>
                                 {logoUrl && (
                                     <Image src={logoUrl} style={{ height: 32 }} />
                                 )}
-                                <View>
-                                    <Text style={styles.title}>
-                                        {primaryCurrentData.month} {primaryCurrentData.year}
-                                    </Text>
+                                <View style={{ alignItems: logoUrl ? 'flex-start' : 'center' }}>
+                                    {showNativeScript ? (
+                                        // Complex Node for Native Script (Split for BiDi/Font isolation)
+                                        <Text style={{ ...styles.title }}>
+                                            <Text style={{ fontFamily: getFontForCalendar(primaryCalendarId as CalendarType) }}>
+                                                {primaryCurrentData.monthNative || primaryCurrentData.month}
+                                            </Text>
+                                            <Text> </Text>
+                                            <Text style={{ fontFamily: getFontForCalendar(primaryCalendarId as CalendarType) }}>
+                                                {toNativeNumerals(parseInt(primaryCurrentData.year.toString()), primaryCalendarId as CalendarType)}
+                                            </Text>
+                                        </Text>
+                                    ) : (
+                                        // Simple Node for Latin/Standard (Better Kerning/Ligatures)
+                                        <Text style={{ ...styles.title, fontFamily: 'Outfit' }}>
+                                            {primaryCurrentData.month} {primaryCurrentData.year}
+                                        </Text>
+                                    )}
                                     <Text style={styles.subTitle}>
                                         Created by UniCal Calendar
                                     </Text>
@@ -245,7 +306,13 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
 
                                 return (
                                     <View key={idx} style={[styles.headerCell, { backgroundColor: headerBg }]}>
-                                        <Text style={[styles.headerText, { color: headerText }]}>{day}</Text>
+                                        <Text style={{
+                                            ...styles.headerText,
+                                            color: headerText,
+                                            fontFamily: showNativeScript ? getFontForCalendar(primaryCalendarId as CalendarType) : 'Outfit'
+                                        }}>
+                                            {day}
+                                        </Text>
                                     </View>
                                 );
                             })}
@@ -308,10 +375,11 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
                                                     if (dayOfWeek === 0) return '#d93025'; // Red
 
                                                     return '#202124';
-                                                })()
+                                                })(),
+                                                fontFamily: showNativeScript ? getFontForCalendar(primaryCalendarId as CalendarType) : 'Outfit'
                                             }
                                         ]}>
-                                            {primaryDateData.day}
+                                            {(primaryCalendarId === 'gregorian' || !showNativeScript) ? primaryDateData.day : toNativeNumerals(primaryDateData.day, primaryCalendarId as CalendarType)}
                                         </Text>
 
                                         {/* Secondary Calendar Info (Limit 2) */}
@@ -321,8 +389,11 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
                                             .map((calId, cIdx) => {
                                                 const data = convertDate(date, calId as CalendarType, { locale });
                                                 return (
-                                                    <Text key={cIdx} style={styles.calendarInfo}>
-                                                        {data.day} {data.month}
+                                                    <Text key={cIdx} style={{
+                                                        ...styles.calendarInfo,
+                                                        fontFamily: showNativeScript ? getFontForCalendar(calId as CalendarType) : 'Outfit'
+                                                    }}>
+                                                        {showNativeScript ? toNativeNumerals(data.day, calId as CalendarType) : data.day} {(showNativeScript && data.monthNative) ? data.monthNative : data.month}
                                                     </Text>
                                                 );
                                             })}

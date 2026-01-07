@@ -24,12 +24,16 @@ export const getChineseDate = (date: Date): CalendarDateResult => {
 
     const cycle = parts.find(p => (p.type as any) === 'yearName')?.value;
 
+    const nativeParts = fmtNative.formatToParts(date);
+    const monthNative = nativeParts.find(p => p.type === 'month')?.value || '';
+
     const { getHoliday } = require('../holidays');
 
     return {
         type: 'chinese',
         day: parseInt(day),
         month: month,
+        monthNative,
         year: yearValue,
         fullDate: fmtLatin.format(date),
         fullDateNative: fmtNative.format(date),

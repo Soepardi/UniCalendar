@@ -29,12 +29,16 @@ const createIntlConverter = (
 
         const year = era ? `${era} ${yearVal}` : yearVal;
 
+        const partsNative = fmtNative.formatToParts(date);
+        const monthNative = partsNative.find(p => p.type === 'month')?.value || '';
+
         const { getHoliday } = require('../holidays');
 
         return {
             type,
             day: parseInt(day.replace(/[^0-9]/g, '') || '0'), // sanitize
             month,
+            monthNative,
             year,
             fullDate: fmtLatin.format(date),
             fullDateNative: fmtNative.format(date),

@@ -15,9 +15,14 @@ export const getHijriDate = (date: Date): CalendarDateResult => {
         year: 'numeric',
     });
 
+    const nativeParts = fmtNative.formatToParts(date);
+    const monthNative = nativeParts.find(p => p.type === 'month')?.value || '';
+
     const parts = fmtLatin.formatToParts(date);
     const day = parts.find(p => p.type === 'day')?.value || '0';
-    const month = parts.find(p => p.type === 'month')?.value || '';
+    let month = parts.find(p => p.type === 'month')?.value || '';
+    // Sanitize month name for PDF font compatibility (replace ʻ with ')
+    month = month.replace(/[ʻʼ`]/g, "'").replace(/»/g, "'");
     const year = parts.find(p => p.type === 'year')?.value || '0';
 
     const { getHoliday } = require('../holidays');
@@ -26,6 +31,7 @@ export const getHijriDate = (date: Date): CalendarDateResult => {
         type: 'hijri',
         day: parseInt(day),
         month: month,
+        monthNative,
         year: year,
         fullDate: fmtLatin.format(date),
         fullDateNative: fmtNative.format(date), // e.g. ١٤ رمضان ١٤٤٥

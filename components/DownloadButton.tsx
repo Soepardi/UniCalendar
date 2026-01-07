@@ -8,7 +8,7 @@ import { CalendarDocument } from './pdf/CalendarDocument';
 
 export const DownloadButton = () => {
     const { translations, getLocale } = useLanguageStore();
-    const { currentDate, selectedCalendars } = useCalendarStore();
+    const { currentDate, selectedCalendars, showNativeScript } = useCalendarStore();
     const [loading, setLoading] = useState(false);
     const [showOptions, setShowOptions] = useState(false);
 
@@ -36,6 +36,7 @@ export const DownloadButton = () => {
                     translations={translations}
                     locale={getLocale()}
                     logoUrl={window.location.origin + '/UniCalendar/logo.png'}
+                    showNativeScript={showNativeScript}
                 />
             ).toBlob();
 
@@ -87,7 +88,7 @@ export const DownloadButton = () => {
 
             {/* Dropdown Menu */}
             {showOptions && !loading && (
-                <div className="absolute top-full right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100/50 overflow-hidden z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+                <div className="absolute top-full end-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-gray-100/50 overflow-hidden z-50 animate-in fade-in slide-in-from-top-3 duration-200">
                     <div className="p-1.5 space-y-0.5">
                         <button
                             onClick={() => handleDownload('month')}

@@ -3,7 +3,7 @@
 import React from 'react';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { useLanguageStore } from '@/store/useLanguageStore';
-import { CalendarType, convertDate } from '@/lib/calendars';
+import { CalendarType, convertDate, toNativeNumerals } from '@/lib/calendars';
 import {
     startOfMonth,
     endOfMonth,
@@ -17,7 +17,7 @@ import {
 } from 'date-fns';
 
 const MonthView = () => {
-    const { currentDate, selectedCalendars, setDate, setViewMode } = useCalendarStore();
+    const { currentDate, selectedCalendars, setDate, setViewMode, showNativeScript } = useCalendarStore();
     const { getLocale, translations } = useLanguageStore();
     const locale = getLocale();
 
@@ -60,11 +60,14 @@ const MonthView = () => {
                 <h2 className="flex flex-wrap items-baseline gap-2 md:gap-3 text-[#202124] tracking-tight">
                     <span className="text-2xl font-bold uppercase tracking-tight text-[#1a73e8]">
                         {/* Use translated/formatted month/year */}
-                        {primaryCurrentData.month} {primaryCurrentData.year}
+                        {(showNativeScript && primaryCurrentData.monthNative) ? primaryCurrentData.monthNative : primaryCurrentData.month} {showNativeScript ? toNativeNumerals(parseInt(primaryCurrentData.year.toString()), primaryCalendarId as CalendarType) : primaryCurrentData.year}
                     </span>
-                    {primaryCurrentData.fullDateNative && primaryCurrentData.fullDateNative !== primaryCurrentData.fullDate && (
+                    {primaryCurrentData.monthNative && (
                         <span className="text-lg font-medium text-[#5f6368] opacity-80">
-                            {primaryCurrentData.fullDateNative.split(' ')[1]} {primaryCurrentData.fullDateNative.split(' ')[2]}
+                            {showNativeScript
+                                ? `${primaryCurrentData.month} ${primaryCurrentData.year}`
+                                : `${primaryCurrentData.monthNative} ${toNativeNumerals(parseInt(primaryCurrentData.year.toString()), primaryCalendarId as CalendarType)}`
+                            }
                         </span>
                     )}
                 </h2>
@@ -217,7 +220,7 @@ const MonthView = () => {
 
                                             return 'text-[#202124]';
                                         })() : ''}`}>
-                                            {primaryDateData.day}
+                                            {(primaryCalendarId === 'gregorian' || !showNativeScript) ? primaryDateData.day : toNativeNumerals(primaryDateData.day, primaryCalendarId as CalendarType)}
                                         </span>
                                     </div>
                                 </span>
@@ -232,7 +235,7 @@ const MonthView = () => {
                                             <div className="flex items-center gap-1.5 ">
                                                 <div className={`w-1 h-1 rounded-full shrink-0 ${data.holiday ? 'bg-[#d93025]' : 'bg-[#1a73e8]'}`}></div>
                                                 <span className={`text-[10px] truncate ${data.holiday ? 'text-[#d93025] font-medium' : 'text-[#5f6368]'}`}>
-                                                    {data.day} {data.month}
+                                                    {showNativeScript ? toNativeNumerals(data.day, calId as CalendarType) : data.day} {(showNativeScript && data.monthNative) ? data.monthNative : data.month}
                                                 </span>
                                             </div>
                                         </div>
@@ -374,14 +377,14 @@ export const CalendarGrid = () => {
                             <div className="mt-auto">
                                 <div className="flex items-baseline gap-2 mb-1">
                                     <span className="text-4xl md:text-5xl font-medium text-[#202124] tracking-tight">
-                                        {data.day}
+                                        {showNativeScript ? toNativeNumerals(data.day, calId as CalendarType) : data.day}
                                     </span>
                                     <span className="text-lg font-medium text-[#1a73e8]">
-                                        {data.month}
+                                        {(showNativeScript && data.monthNative) ? data.monthNative : data.month}
                                     </span>
                                 </div>
                                 <div className="text-xl font-medium text-[#9aa0a6] mb-6">
-                                    {data.year}
+                                    {showNativeScript ? toNativeNumerals(parseInt(data.year.toString()), calId as CalendarType) : data.year}
                                 </div>
 
                                 <div className="pt-6 border-t border-[#f1f3f4] flex items-center justify-between">

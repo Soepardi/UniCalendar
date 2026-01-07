@@ -32,6 +32,7 @@ export interface CalendarDateResult {
     cycle?: string;
     holiday?: string;
     nativeData?: any;
+    monthNative?: string;
 }
 
 export const convertDate = (date: Date, type: CalendarType, options?: { locale?: any }): CalendarDateResult => {
@@ -170,4 +171,23 @@ export const CALENDAR_META: Record<CalendarType, { name: string; description: st
     mayan: { name: "Mayan", description: "Long Count" },
     japanese: { name: "Japanese Era", description: "Imperial Eras (Reiwa)" },
     korean: { name: "Korean (Dangi)", description: "Traditional Lunisolar" },
+};
+
+export const toNativeNumerals = (num: number, type: CalendarType): string => {
+    if (['hijri', 'islamic', 'islamic-umalqura', 'islamic-civil', 'islamic-tbla', 'persian'].includes(type)) {
+        const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        return num.toString().replace(/\d/g, (d) => arabicNumerals[parseInt(d)]);
+    }
+
+    if (type === 'hebrew') {
+        // Simple Gematria for days 1-31
+        const hebrewNumerals: { [key: number]: string } = {
+            1: 'א', 2: 'ב', 3: 'ג', 4: 'ד', 5: 'ה', 6: 'ו', 7: 'ז', 8: 'ח', 9: 'ט', 10: 'י',
+            11: 'יא', 12: 'יב', 13: 'יג', 14: 'יד', 15: 'טו', 16: 'טז', 17: 'יז', 18: 'יח', 19: 'יט', 20: 'כ',
+            21: 'כא', 22: 'כב', 23: 'כג', 24: 'כד', 25: 'כה', 26: 'כו', 27: 'כז', 28: 'כח', 29: 'כט', 30: 'ל', 31: 'לא'
+        };
+        return hebrewNumerals[num] || num.toString();
+    }
+
+    return num.toString();
 };

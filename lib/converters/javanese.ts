@@ -65,6 +65,7 @@ export const getJavaneseDate = (date: Date): CalendarDateResult => {
         type: 'javanese',
         day: hDay,
         month: monthName,
+        monthNative: monthNameNative,
         year: javaneseYear,
         fullDate: fullDate,
         fullDateNative: fullDateNative,

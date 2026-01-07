@@ -34,12 +34,17 @@ export const getBuddhistDate = (date: Date): CalendarDateResult => {
     const monthIndex = date.getMonth(); // 0-based index matches Gregorian/Thai Solar
     const monthName = THAI_MONTHS_LATIN[monthIndex];
 
+    // Extract Native Month
+    const nativeParts = fmtNative.formatToParts(date);
+    const monthNative = nativeParts.find(p => p.type === 'month')?.value || '';
+
     const { getHoliday } = require('../holidays');
 
     return {
         type: 'buddhist',
         day: parseInt(day),
         month: monthName,
+        monthNative,
         year: year,
         fullDate: `${day} ${monthName} ${year}`,
         fullDateNative: fmtNative.format(date),
