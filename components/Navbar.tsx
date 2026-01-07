@@ -28,11 +28,12 @@ export const Navbar = () => {
                 <div className="flex items-center gap-4">
                     <LanguageSelector />
                     <DonationButton />
-                    <div className="w-10 h-10 rounded-full border border-[#dadce0] p-0.5 hover:bg-[#f8f9fa] cursor-pointer transition-all active:scale-95">
+                    {/* User Account Button (Hidden for now) */}
+                    {/* <div className="w-10 h-10 rounded-full border border-[#dadce0] p-0.5 hover:bg-[#f8f9fa] cursor-pointer transition-all active:scale-95">
                         <div className="w-full h-full rounded-full bg-[#1a73e8]/10 flex items-center justify-center text-[#1a73e8] font-bold text-sm">
                             A
                         </div>
-                    </div>
+                    </div> */}
                 </div>
             </div>
         </header>
