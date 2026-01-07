@@ -13,8 +13,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "UniCal Pro",
-  description: "Precision temporal engineering for the modern web",
+  title: "UniCal World Calendar",
+  description: "Calendar from Soe With love",
 };
 
 import { MainLayout } from "@/components/layout/MainLayout";
