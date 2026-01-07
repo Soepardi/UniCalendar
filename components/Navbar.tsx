@@ -12,7 +12,7 @@ export const Navbar = () => {
                 <div className="flex items-center gap-3 group cursor-pointer">
                     <div className="relative w-10 h-10 group-hover:scale-105 transition-transform">
                         <img
-                            src="/UniCalendar/logo.png"
+                            src="/logo.png"
                             alt="UniCal Logo"
                             className="w-full h-full object-contain"
                         />

@@ -55,7 +55,7 @@ export default function Home() {
               <div className="flex items-center gap-4">
                 <div className="relative w-10 h-10 md:w-12 md:h-12">
                   <img
-                    src="/UniCalendar/logo.png"
+                    src="/logo.png"
                     alt="UniCal Logo"
                     className="w-full h-full object-contain"
                   />

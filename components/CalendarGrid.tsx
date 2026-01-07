@@ -176,7 +176,7 @@ const MonthView = () => {
                                 setDate(date);
                                 setViewMode('day');
                             }}
-                            className={`min-h-[80px] md:min-h-[120px] p-2 border-t border-r border-[#f1f3f4] transition-all cursor-pointer group relative ${isCurrentMonth
+                            className={`min-h-[70px] md:min-h-[120px] p-1 md:p-2 border-t border-r border-[#f1f3f4] transition-all cursor-pointer group relative ${isCurrentMonth
                                 ? isSelected
                                     ? 'bg-white z-10 ring-2 ring-[#1a73e8] rounded-xl'
                                     : hasHoliday
@@ -185,10 +185,10 @@ const MonthView = () => {
                                 : 'opacity-20 pointer-events-none'
                                 }`}
                         >
-                            <div className="flex justify-between items-start mb-1">
-                                <span className={`text-lg font-bold transition-colors`}>
-                                    <div className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${isToday
-                                        ? 'bg-[#1a73e8] ring-4 ring-[#1a73e8]/20'
+                            <div className="flex justify-between items-start mb-0.5 md:mb-1">
+                                <span className={`text-base md:text-lg font-bold transition-colors`}>
+                                    <div className={`w-7 h-7 md:w-9 md:h-9 flex shrink-0 items-center justify-center rounded-full transition-all ${isToday
+                                        ? 'bg-[#1a73e8] ring-2 md:ring-4 ring-[#1a73e8]/20'
                                         : isSelected
                                             ? 'ring-2 ring-[#1a73e8]/30'
                                             : ''
