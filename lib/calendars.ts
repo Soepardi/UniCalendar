@@ -99,6 +99,64 @@ export const convertDate = (date: Date, type: CalendarType, options?: { locale?:
     }
 };
 
+export const getNativeMonthBoundaries = (date: Date, type: CalendarType, locale?: any): { start: Date; end: Date } => {
+    // Gregorian is simple
+    if (type === 'gregorian') {
+        // We need to import these if not present, but for now assuming they are available or we use a workaround
+        // Since we are inside lib/calendars, we might need to add imports at top
+        // Let's rely on the caller or just standard JS date manipulation for simplicity to avoid import mess if possible,
+        // BUT accuracy is key. Let's assume we can add imports.
+        // Actually, let's keep logic pure.
+        const start = new Date(date.getFullYear(), date.getMonth(), 1);
+        const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        return { start, end };
+    }
+
+    // For other calendars, we try to find the "Native Day 1"
+    const currentData = convertDate(date, type, { locale });
+    const currentDay = currentData.day;
+
+    let start = new Date(date);
+    // Move back to day 1 (approximate) - simplistic subtraction only works if native days map 1:1 to Gregorian days duration (mostly true)
+    start.setDate(date.getDate() - (currentDay - 1));
+
+    // Verify day 1
+    // Sometimes calc might be off by a day due to moon sighting diffs simulated, but usually safe for algorithm
+    // Let's double check if we landed on day 1
+    let checkData = convertDate(start, type, { locale });
+    if (checkData.day !== 1) {
+        // Correction loop (max 3 days search)
+        for (let i = -2; i <= 2; i++) {
+            const testDate = new Date(start);
+            testDate.setDate(start.getDate() + i);
+            if (convertDate(testDate, type, { locale }).day === 1) {
+                start = testDate;
+                break;
+            }
+        }
+    }
+
+    // Find end (Start + 28..32 days)
+    let end = new Date(start);
+    end.setDate(start.getDate() + 28); // Minimum month length
+
+    // Move forward until month changes
+    // Max iteration ~5 days
+    const startMonth = checkData.month; // Name of month
+    for (let i = 0; i < 5; i++) {
+        const nextDay = new Date(end);
+        nextDay.setDate(end.getDate() + 1);
+        const nextData = convertDate(nextDay, type, { locale });
+        if (nextData.month !== startMonth && nextData.day === 1) {
+            // Found the start of next month, so 'end' is correct
+            break;
+        }
+        end = nextDay;
+    }
+
+    return { start, end };
+};
+
 export const CALENDAR_META: Record<CalendarType, { name: string; description: string }> = {
     gregorian: { name: "Gregorian", description: "International standard" },
     hijri: { name: "Islamic (Hijri)", description: "Lunar calendar" },

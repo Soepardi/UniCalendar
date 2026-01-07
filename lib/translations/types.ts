@@ -7,16 +7,6 @@ export interface Translations {
         keywords: string;
     };
     home: {
-        partner: string;
-        protocol: string;
-        protocol_desc: string;
-        connect: string;
-        infrastructure: string;
-        infrastructure_desc: string;
-        api_engine: string;
-        api_engine_desc: string;
-        calendar_accuracy: string;
-        apply_api: string;
         footer_text: string;
         date_label: string;
     };
@@ -56,5 +46,11 @@ export interface Translations {
         next_day: string;
         holiday_cheer: string;
         calendars_viewed: string;
+        buy_me_coffee: string;
+        view_mode_day: string;
+        view_mode_month: string;
+        native_script: string;
+        export: string;
+        processing: string;
     };
 }

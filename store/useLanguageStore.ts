@@ -24,6 +24,8 @@ interface LanguageState {
     setLanguage: (lang: Language) => void;
     getLocale: () => any;
     translations: Translations;
+    _hasHydrated: boolean;
+    setHasHydrated: (state: boolean) => void;
 }
 
 export const useLanguageStore = create<LanguageState>()(
@@ -32,6 +34,10 @@ export const useLanguageStore = create<LanguageState>()(
             language: 'eng',
             direction: 'ltr',
             translations: translations.eng,
+
+            // Add hydration state tracking
+            _hasHydrated: false,
+            setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
 
             setLanguage: (lang: Language) => {
                 const isRtl = ['ara', 'per', 'heb'].includes(lang);
@@ -72,6 +78,7 @@ export const useLanguageStore = create<LanguageState>()(
             onRehydrateStorage: () => (state) => {
                 if (state) {
                     state.setLanguage(state.language); // Re-apply direction and translations
+                    state.setHasHydrated(true);
                 }
             }
         }

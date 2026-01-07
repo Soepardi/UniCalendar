@@ -1,20 +1,25 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { DonationButton } from './ui/DonationButton';
 import { LanguageSelector } from './LanguageSelector';
 
 export const Navbar = () => {
     return (
         <header className="sticky top-0 z-50 glass border-b border-indigo-100/30 backdrop-blur-xl bg-white/60">
-            <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between">
                 <div className="flex items-center gap-3 group cursor-pointer">
-                    <div className="w-10 h-10 premium-gradient rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/10 group-hover:rotate-12 transition-transform">
-                        <span className="text-white font-black text-xl tracking-tighter">U</span>
+                    <div className="relative w-10 h-10 group-hover:scale-105 transition-transform">
+                        <img
+                            src="/UniCalendar/logo.png"
+                            alt="UniCal Logo"
+                            className="w-full h-full object-contain"
+                        />
                     </div>
-                    <div>
+                    <div className="hidden md:block">
                         <h1 className="text-lg font-black text-zinc-900 tracking-tighter">
-                            uniCal
+                            UniCal
                         </h1>
                         <p className="text-[9px] font-bold text-indigo-600/60 uppercase tracking-widest leading-none">World Calendar</p>
                     </div>

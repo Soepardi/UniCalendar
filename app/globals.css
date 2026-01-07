@@ -110,3 +110,21 @@ body {
   background-color: #d2e3fc;
   color: #185abc;
 }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 2cm;
+  }
+
+  body {
+    background: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure specific elements are hidden if Tailwind class misses somehow or for specificity */
+  .print\:hidden {
+    display: none !important;
+  }
+}
