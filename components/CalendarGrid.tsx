@@ -56,22 +56,33 @@ const MonthView = () => {
 
     return (
         <div className="bg-white rounded-3xl p-4 md:p-8 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 px-2 pb-6 border-b-2 border-[#1a73e8]">
-                <h2 className="flex flex-wrap items-baseline gap-2 md:gap-3 text-[#202124] tracking-tight">
-                    <span className="text-2xl font-bold uppercase tracking-tight text-[#1a73e8]">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 md:mb-6 px-1 md:px-2 pb-4 md:pb-6 border-b-2 border-[#1a73e8]">
+                <h2 className="w-full md:w-auto flex flex-col md:flex-row md:items-baseline gap-1 md:gap-3 text-[#202124] tracking-tight text-center md:text-left">
+                    <span className="text-2xl md:text-2xl font-bold uppercase tracking-tight text-[#1a73e8] leading-none">
                         {/* Use translated/formatted month/year */}
-                        {(showNativeScript && primaryCurrentData.monthNative) ? primaryCurrentData.monthNative : primaryCurrentData.month} {showNativeScript ? toNativeNumerals(parseInt(primaryCurrentData.year.toString()), primaryCalendarId as CalendarType) : primaryCurrentData.year}
+                        {(showNativeScript && primaryCurrentData.monthNative) ? primaryCurrentData.monthNative : primaryCurrentData.month} {
+                            showNativeScript
+                                ? (primaryCurrentData.yearNative || (() => {
+                                    const y = parseInt(primaryCurrentData.year.toString());
+                                    return isNaN(y) ? primaryCurrentData.year : toNativeNumerals(y, primaryCalendarId as CalendarType);
+                                })())
+                                : primaryCurrentData.year
+                        }
                     </span>
                     {primaryCurrentData.monthNative && (
-                        <span className="text-lg font-medium text-[#5f6368] opacity-80">
+                        <span className="text-sm md:text-lg font-medium text-[#5f6368] opacity-80 leading-none">
                             {showNativeScript
                                 ? `${primaryCurrentData.month} ${primaryCurrentData.year}`
-                                : `${primaryCurrentData.monthNative} ${toNativeNumerals(parseInt(primaryCurrentData.year.toString()), primaryCalendarId as CalendarType)}`
+                                : `${primaryCurrentData.monthNative} ${primaryCurrentData.yearNative || (() => {
+                                    const y = parseInt(primaryCurrentData.year.toString());
+                                    return isNaN(y) ? primaryCurrentData.year : toNativeNumerals(y, primaryCalendarId as CalendarType);
+                                })()
+                                }`
                             }
                         </span>
                     )}
                 </h2>
-                <div className="flex items-center gap-2 print:hidden">
+                <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-2 shrink-0 print:hidden bg-[#f8f9fa] md:bg-transparent p-1 md:p-0 rounded-full md:rounded-none">
                     <button
                         onClick={() => {
                             // Native Navigation: Jump to previous month based on boundaries
@@ -84,11 +95,19 @@ const MonthView = () => {
                                 setDate(prevMonthDate);
                             }
                         }}
-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
+                        className="w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center hover:bg-white md:hover:bg-[#f8f9fa] border border-transparent md:hover:border-[#dadce0] transition-all text-[#5f6368] shadow-sm md:shadow-none"
                         title={translations.common.previous_month}
                     >
                         <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
+
+                    <button
+                        onClick={() => setDate(new Date())}
+                        className="px-6 py-2 text-xs md:text-sm font-bold text-[#1a73e8] bg-white md:bg-transparent hover:bg-[#e8f0fe] rounded-full transition-all border border-[#dadce0] md:border-[#1a73e8]/10 shadow-sm md:shadow-none uppercase tracking-wider"
+                    >
+                        {translations.common.today}
+                    </button>
+
                     <button
                         onClick={() => {
                             // Native Navigation: Jump to next month
@@ -101,16 +120,10 @@ const MonthView = () => {
                                 setDate(nextMonthDate);
                             }
                         }}
-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
+                        className="w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center hover:bg-white md:hover:bg-[#f8f9fa] border border-transparent md:hover:border-[#dadce0] transition-all text-[#5f6368] shadow-sm md:shadow-none"
                         title={translations.common.next_month}
                     >
                         <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                    <button
-                        onClick={() => setDate(new Date())}
-                        className="ml-2 px-4 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#e8f0fe] rounded-full transition-all"
-                    >
-                        {translations.common.today}
                     </button>
                 </div>
             </div>
@@ -255,7 +268,7 @@ const MonthView = () => {
                     );
                 })}
             </div>
-        </div>
+        </div >
     );
 };
 

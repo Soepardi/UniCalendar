@@ -31,6 +31,9 @@ const createIntlConverter = (
 
         const partsNative = fmtNative.formatToParts(date);
         const monthNative = partsNative.find(p => p.type === 'month')?.value || '';
+        const eraNative = partsNative.find(p => p.type === 'era')?.value;
+        const yearValNative = partsNative.find(p => p.type === 'year')?.value || '0';
+        const yearNative = eraNative ? `${eraNative} ${yearValNative}` : yearValNative;
 
         const { getHoliday } = require('../holidays');
 
@@ -40,6 +43,7 @@ const createIntlConverter = (
             month,
             monthNative,
             year,
+            yearNative,
             fullDate: fmtLatin.format(date),
             fullDateNative: fmtNative.format(date),
             holiday: getHoliday(type, month, parseInt(day.replace(/[^0-9]/g, '') || '0'))

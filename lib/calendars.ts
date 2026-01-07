@@ -33,6 +33,7 @@ export interface CalendarDateResult {
     holiday?: string;
     nativeData?: any;
     monthNative?: string;
+    yearNative?: string;
 }
 
 export const convertDate = (date: Date, type: CalendarType, options?: { locale?: any }): CalendarDateResult => {
