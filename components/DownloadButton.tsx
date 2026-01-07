@@ -35,7 +35,7 @@ export const DownloadButton = () => {
                     selectedCalendars={selectedCalendars}
                     translations={translations}
                     locale={getLocale()}
-                    logoUrl={window.location.origin + '/UniCalendar/logo.png'}
+                    logoUrl={window.location.origin + '/logo.png'}
                     showNativeScript={showNativeScript}
                 />
             ).toBlob();
