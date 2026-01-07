@@ -292,33 +292,36 @@ export const CalendarGrid = () => {
     return (
         <div className="space-y-8">
             {/* Day View Navigation Header */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-2 px-2 p-4 md:p-6 gap-4 md:gap-0">
-                <div className="flex flex-col">
+            {/* Day View Navigation Header */}
+            <div className="flex flex-col md:flex-row items-center justify-between mb-2 md:mb-4 px-2 p-4 md:p-6 gap-4 md:gap-0">
+                <div className="w-full md:w-auto flex flex-col items-center md:items-start text-center md:text-left">
                     <span className="text-[10px] font-bold text-[#1a73e8] uppercase tracking-widest mb-1">{translations.home.date_label}</span>
                     <h3 className="text-2xl font-medium text-[#202124] tracking-tight">
                         {format(currentDate, 'EEEE, d MMMM yyyy', { locale })}
                     </h3>
                 </div>
-                <div className="flex items-center gap-2 print:hidden">
+                <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-2 shrink-0 print:hidden bg-[#f8f9fa] md:bg-transparent p-1 md:p-0 rounded-full md:rounded-none">
                     <button
                         onClick={() => setDate(addDays(currentDate, -1))}
-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
+                        className="w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center hover:bg-white md:hover:bg-[#f8f9fa] border border-transparent md:hover:border-[#dadce0] transition-all text-[#5f6368] shadow-sm md:shadow-none"
                         title={translations.common.previous_day}
                     >
                         <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
+
+                    <button
+                        onClick={() => setDate(new Date())}
+                        className="px-6 py-2 text-xs md:text-sm font-bold text-[#1a73e8] bg-white md:bg-transparent hover:bg-[#e8f0fe] rounded-full transition-all border border-[#dadce0] md:border-[#1a73e8]/10 shadow-sm md:shadow-none uppercase tracking-wider"
+                    >
+                        {translations.common.today}
+                    </button>
+
                     <button
                         onClick={() => setDate(addDays(currentDate, 1))}
-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-[#f8f9fa] border border-transparent hover:border-[#dadce0] transition-all text-[#5f6368]"
+                        className="w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center hover:bg-white md:hover:bg-[#f8f9fa] border border-transparent md:hover:border-[#dadce0] transition-all text-[#5f6368] shadow-sm md:shadow-none"
                         title={translations.common.next_day}
                     >
                         <svg className="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                    <button
-                        onClick={() => setDate(new Date())}
-                        className="ml-2 px-4 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#e8f0fe] rounded-full transition-all"
-                    >
-                        {translations.common.today}
                     </button>
                 </div>
             </div>
