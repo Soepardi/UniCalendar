@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useEventStore, CalendarEvent } from '@/store/useEventStore';
-import { Calendar as CalendarIcon, Clock, AlignLeft, X, Trash2, Save, Plus } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, AlignLeft, X, Trash2, Save, Plus, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface EventModalProps {
@@ -19,12 +19,25 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
     const [isEditing, setIsEditing] = useState<string | null>(null); // ID of event being edited
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [time, setTime] = useState('');
+    const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('none');
+    const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]); // 0=Sun
+    const [showTimePicker, setShowTimePicker] = useState(false);
 
     // Reset form when modal opens or date changes
     useEffect(() => {
         setIsEditing(null);
         setTitle('');
         setDescription('');
+
+        // Auto-fill time if provided in date object
+        const hours = date.getHours();
+        const minutes = date.getMinutes();
+        if (hours !== 0 || minutes !== 0) {
+            setTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+        } else {
+            setTime('');
+        }
     }, [isOpen, date]);
 
     if (!isOpen) return null;
@@ -33,23 +46,33 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
         if (!title.trim()) return;
 
         if (isEditing) {
-            await updateEvent(isEditing, { title, description });
+            await updateEvent(isEditing, { title, description, time, recurrence: recurrence as any, recurrence_days: recurrenceDays });
         } else {
             await addEvent({
                 title,
                 description,
                 date: dateKey,
+                time,
+                recurrence: recurrence as any,
+                recurrence_days: recurrenceDays
             });
         }
         setIsEditing(null);
         setTitle('');
         setDescription('');
+        setTime('');
+        setRecurrence('none');
+        setRecurrenceDays([]);
+        onClose();
     };
 
     const handleEdit = (evt: CalendarEvent) => {
         setIsEditing(evt.id);
         setTitle(evt.title);
         setDescription(evt.description || '');
+        setTime(evt.time || '');
+        setRecurrence(evt.recurrence || 'none');
+        setRecurrenceDays(evt.recurrence_days || []);
     };
 
     const handleDelete = async (id: string) => {
@@ -58,10 +81,28 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
         }
     };
 
+    // Helper for sliders
+    const handleTimeChange = (type: 'hour' | 'minute', val: number) => {
+        let [h, m] = (time || '12:00').split(':').map(Number);
+        if (isNaN(h)) h = 12;
+        if (isNaN(m)) m = 0;
+
+        if (type === 'hour') h = val;
+        if (type === 'minute') m = val;
+
+        setTime(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+    };
+
+    const getHour = () => time ? parseInt(time.split(':')[0]) : 12;
+    const getMinute = () => time ? parseInt(time.split(':')[1]) : 0;
+
+
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/20">
-                <div className="bg-[#f8f9fa] border-b border-gray-100 p-6 flex items-center justify-between">
+            <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border border-white/20 max-h-[85vh] flex flex-col">
+                {/* Header ... */}
+                <div className="bg-[#f8f9fa] border-b border-gray-100 p-6 flex flex-shrink-0 items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
                             <CalendarIcon size={20} className="text-[#1a73e8]" />
@@ -79,9 +120,9 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                     </button>
                 </div>
 
-                <div className="p-6">
-                    {/* Event List */}
-                    <div className="space-y-3 mb-8 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                    {/* Event List ... */}
+                    <div className="space-y-3 mb-8">
                         {dayEvents.length === 0 && !isEditing && (
                             <div className="text-center py-8 text-gray-400">
                                 <Clock size={48} className="mx-auto mb-3 opacity-20" />
@@ -97,7 +138,14 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                                 <div className="flex justify-between items-start gap-4">
                                     <div className="flex-1">
                                         <h3 className={`font-bold text-base ${isEditing === evt.id ? 'text-[#1a73e8]' : 'text-gray-900'}`}>{evt.title}</h3>
-                                        {evt.description && <p className="text-sm text-gray-500 mt-1 leading-relaxed">{evt.description}</p>}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            {evt.time && (
+                                                <span className="text-xs font-bold text-[#1a73e8] bg-[#e8f0fe] px-1.5 py-0.5 rounded">
+                                                    {evt.time}
+                                                </span>
+                                            )}
+                                            {evt.description && <p className="text-sm text-gray-500 leading-relaxed max-w-[200px] truncate">{evt.description}</p>}
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
@@ -132,8 +180,143 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                                 onChange={e => setTitle(e.target.value)}
                                 placeholder="Event title (e.g., Team Meeting)"
                                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 ring-[#1a73e8]/20 focus:border-[#1a73e8] outline-none transition-all font-medium"
-                                autoFocus={!!isEditing} // Only autofocus if editing, otherwise it might be annoying on open
+                                autoFocus={!!isEditing}
                             />
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                                    Time
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="time"
+                                        value={time}
+                                        onChange={(e) => setTime(e.target.value)}
+                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 ring-[#1a73e8]/20 focus:border-[#1a73e8] outline-none transition-all font-bold text-gray-700 [&::-webkit-calendar-picker-indicator]:hidden"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTimePicker(!showTimePicker)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#1a73e8] p-1"
+                                    >
+                                        <Clock size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Time Picker Columns (Collapsible) */}
+                            {showTimePicker && (
+                                <div className="flex gap-4 h-48 animate-in slide-in-from-top-2 duration-200">
+                                    {/* Hours Column */}
+                                    <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                        <div className="bg-gray-50 border-b border-gray-100 py-1 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                            Hour
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+                                            {Array.from({ length: 24 }, (_, i) => i).map(h => (
+                                                <button
+                                                    key={h}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        handleTimeChange('hour', h);
+                                                        // Optional: keep open or auto-close? User implied "ability to show", so manual toggle is safer.
+                                                    }}
+                                                    className={`w-full py-2 text-sm font-medium rounded-lg transition-colors mb-1 ${getHour() === h
+                                                        ? 'bg-[#1a73e8] text-white shadow-sm'
+                                                        : 'text-gray-700 hover:bg-gray-100'
+                                                        }`}
+                                                >
+                                                    {h.toString().padStart(2, '0')}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div className="flex items-center justify-center text-gray-300 font-bold text-xl pb-6">
+                                        :
+                                    </div>
+
+                                    {/* Minutes Column */}
+                                    <div className="flex-1 flex flex-col border border-gray-200 rounded-xl overflow-hidden bg-white">
+                                        <div className="bg-gray-50 border-b border-gray-100 py-1 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                            Minute
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
+                                            {Array.from({ length: 12 }, (_, i) => i * 5).map(m => (
+                                                <button
+                                                    key={m}
+                                                    type="button"
+                                                    onClick={() => handleTimeChange('minute', m)}
+                                                    className={`w-full py-2 text-sm font-medium rounded-lg transition-colors mb-1 ${getMinute() === m
+                                                        ? 'bg-[#1a73e8] text-white shadow-sm'
+                                                        : 'text-gray-700 hover:bg-gray-100'
+                                                        }`}
+                                                >
+                                                    {m.toString().padStart(2, '0')}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Recurrence Selector */}
+                        <div className="space-y-3 pt-2">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                                    Repeat
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={recurrence}
+                                        onChange={(e) => setRecurrence(e.target.value as any)}
+                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 ring-[#1a73e8]/20 focus:border-[#1a73e8] outline-none transition-all font-medium appearance-none"
+                                    >
+                                        <option value="none">Does not repeat</option>
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly on {format(date, 'EEEE')}</option>
+                                        <option value="monthly">Monthly on the {format(date, 'do')}</option>
+                                        <option value="yearly">Yearly on {format(date, 'MMMM do')}</option>
+                                        <option value="custom">Custom...</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                                </div>
+                            </div>
+
+                            {/* Custom Days Selector */}
+                            {recurrence === 'custom' && (
+                                <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">
+                                        Repeat on
+                                    </label>
+                                    <div className="flex justify-between gap-1">
+                                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => {
+                                            const isSelected = recurrenceDays.includes(idx);
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        if (isSelected) {
+                                                            setRecurrenceDays(recurrenceDays.filter(d => d !== idx));
+                                                        } else {
+                                                            setRecurrenceDays([...recurrenceDays, idx]);
+                                                        }
+                                                    }}
+                                                    className={`w-10 h-10 rounded-full font-bold text-sm transition-all ${isSelected
+                                                        ? 'bg-[#1a73e8] text-white shadow-md scale-10-5'
+                                                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                                        }`}
+                                                >
+                                                    {day}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <textarea
@@ -159,12 +342,16 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                                         setIsEditing(null);
                                         setTitle('');
                                         setDescription('');
+                                        setTime('');
                                     }}
                                     className="px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-sm transition-all"
                                 >
                                     Cancel
                                 </button>
                             )}
+
+
+
                         </div>
                     </div>
 

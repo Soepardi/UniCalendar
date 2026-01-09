@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { DonationButton } from '../ui/DonationButton';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { Navbar } from '../Navbar';
+import { usePathname } from 'next/navigation';
 
 const CalendarControls = dynamic(
     () => import('../CalendarControls').then((mod) => mod.CalendarControls),
@@ -19,6 +20,13 @@ const CalendarControls = dynamic(
 );
 
 export const MainLayout = ({ children }: { children: React.ReactNode }) => {
+    const pathname = usePathname();
+
+    // If we are on the dashboard (Todoist-style), return children directly (no global wrapper)
+    if (pathname === '/profile' || pathname === '/my-calendars') {
+        return <>{children}</>;
+    }
+
     return (
         <div className="min-h-screen bg-transparent relative overflow-hidden flex flex-col">
             {/* Immersive Background Orbs */}

@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import { MainLayout } from "@/components/layout/MainLayout";
+import { AuthModalWrapper } from "../components/auth/AuthModalWrapper";
 
 export default function RootLayout({
   children,
@@ -29,6 +30,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${outfit.variable} antialiased`}>
         <MainLayout>
           {children}
+          <AuthModalWrapper />
         </MainLayout>
       </body>
     </html>

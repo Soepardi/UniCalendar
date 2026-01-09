@@ -5,6 +5,8 @@ create table if not exists public.events (
   title text not null,
   date date not null,
   description text,
+  color text default 'blue', -- blue, green, red, yellow, purple
+  time text, -- 'HH:mm' format
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -31,6 +33,6 @@ create policy "Users can delete their own events"
 on public.events for delete
 using ( auth.uid() = user_id );
 
--- Create Policy: Users can insert their own events (Explicit check for insert)
--- Note: The 'with check' in the insert policy above handles this, but sometimes separate policies are clearer. 
--- The standard separate policies above are sufficient.
+-- MIGRATION: 
+-- alter table public.events add column if not exists color text default 'blue';
+-- alter table public.events add column if not exists time text;

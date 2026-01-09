@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     title: {
-        fontSize: 24, // Reduced title size
+        fontSize: 22, // Restored to bold and larger
         color: '#1a73e8', // Colored title
         fontWeight: 'bold',
         textTransform: 'uppercase', // Modern touch
@@ -178,9 +178,11 @@ interface CalendarDocumentProps {
     logoUrl?: string;
     showNativeScript?: boolean;
     events?: Record<string, any[]>;
+    weeklyHoliday?: number;
+    specialDay?: number;
 }
 
-export const CalendarDocument = ({ dates, selectedCalendars, translations, locale, logoUrl, showNativeScript = false, events }: CalendarDocumentProps) => {
+export const CalendarDocument = ({ dates, selectedCalendars, translations, locale, logoUrl, showNativeScript = false, events, weeklyHoliday, specialDay }: CalendarDocumentProps) => {
     // Logic extracted from MonthView
     // Logic should match MonthView: Use first selected as primary
     const primaryCalendarId = selectedCalendars.length > 0 ? selectedCalendars[0] : 'gregorian';
@@ -279,25 +281,35 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
                         {/* Grid Header (Days) */}
                         <View style={styles.grid}>
                             {weekDays.map((day, idx) => {
-                                // Cultural Weekend Logic for Headers
+                                // Cultural / Custom Weekend Logic for Headers
                                 let headerBg = '#f1f3f4'; // Default Light Gray
                                 let headerText = '#202124'; // Default Black
 
-                                // Hijri / Persian -> Friday (5) is Green
-                                if (['hijri', 'islamic', 'islamic-umalqura', 'islamic-civil', 'islamic-tbla', 'persian'].includes(primaryCalendarId)) {
+                                // 1. Custom Override
+                                if (weeklyHoliday !== undefined) {
+                                    if (idx === weeklyHoliday) {
+                                        headerBg = '#d93025';
+                                        headerText = '#ffffff';
+                                    } else if (specialDay !== undefined && idx === specialDay) {
+                                        headerBg = '#1a73e8';
+                                        headerText = '#ffffff';
+                                    }
+                                }
+                                // 2. Default Logic (Hijri / Persian -> Friday)
+                                else if (['hijri', 'islamic', 'islamic-umalqura', 'islamic-civil', 'islamic-tbla', 'persian'].includes(primaryCalendarId)) {
                                     if (idx === 5) {
                                         headerBg = '#34a853';
                                         headerText = '#ffffff';
                                     }
                                 }
-                                // Hebrew -> Saturday (6) is Blue
+                                // Hebrew -> Saturday
                                 else if (primaryCalendarId === 'hebrew') {
                                     if (idx === 6) {
                                         headerBg = '#1a73e8';
                                         headerText = '#ffffff';
                                     }
                                 }
-                                // Default / Gregorian -> Sunday (0) is Red
+                                // Default -> Sunday
                                 else {
                                     if (idx === 0) {
                                         headerBg = '#d93025';
@@ -355,12 +367,20 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
                                             styles.dayNumber,
                                             {
                                                 color: (() => {
-                                                    // 1. Holiday Override (Red)
-                                                    if (hasHoliday) return '#d93025';
-
-                                                    // 2. Cultural Weekend Logic
                                                     const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
 
+                                                    // 1. Holiday or Work Event Override (Red)
+                                                    const hasWork = dayEvents.some((e: any) => e.type === 'work');
+                                                    if (hasHoliday || hasWork) return '#d93025';
+
+                                                    // 2. Custom Override
+                                                    if (weeklyHoliday !== undefined) {
+                                                        if (dayOfWeek === weeklyHoliday) return '#d93025';
+                                                        if (specialDay !== undefined && dayOfWeek === specialDay) return '#1a73e8';
+                                                        return '#202124';
+                                                    }
+
+                                                    // 3. Cultural Weekend Logic
                                                     // Hijri / Persian -> Friday (5) is Green
                                                     if (['hijri', 'islamic', 'islamic-umalqura', 'islamic-civil', 'islamic-tbla', 'persian'].includes(primaryCalendarId)) {
                                                         if (dayOfWeek === 5) return '#34a853'; // Lighter Green
@@ -412,12 +432,12 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
                                         {/* Personal Events in PDF */}
                                         {isCurrentMonth && dayEvents.map((evt: any, eIdx: number) => (
                                             <Text key={`evt-${eIdx}`} style={{
-                                                fontSize: 8,
-                                                color: '#1a73e8', // Blue for personal events
+                                                fontSize: 7, // Reduced from 8
+                                                color: '#d93025', // Use red for work events (since we filtered for them)
                                                 marginTop: 2,
-                                                fontWeight: 'bold',
+                                                fontWeight: 'normal', // Removed bold
                                             }}>
-                                                • {evt.title.length > 15 ? evt.title.substring(0, 15) + '...' : evt.title}
+                                                • {evt.title.length > 20 ? evt.title.substring(0, 20) + '...' : evt.title}
                                             </Text>
                                         ))}
                                     </View>

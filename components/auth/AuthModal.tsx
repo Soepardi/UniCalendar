@@ -13,6 +13,8 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [username, setUsername] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -32,12 +34,24 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                 if (error) throw error;
                 onClose();
             } else {
+                if (password !== confirmPassword) {
+                    throw new Error("Passwords do not match");
+                }
+                if (username.trim().length < 3) {
+                    throw new Error("Username must be at least 3 characters");
+                }
+
                 const { error } = await supabase.auth.signUp({
                     email,
                     password,
+                    options: {
+                        data: {
+                            username: username.trim(),
+                        }
+                    }
                 });
                 if (error) throw error;
-                alert('Check your email for the confirmation link!');
+                alert('Account created! Please check your email to confirm.');
                 onClose();
             }
         } catch (err: any) {
@@ -89,6 +103,24 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                             </div>
                         </div>
 
+                        {!isLogin && (
+                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Username</label>
+                                <div className="relative group">
+                                    <div className="absolute left-4 top-3.5 text-gray-400 font-bold text-sm">@</div>
+                                    <input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-transparent focus:border-[#1a73e8]/20 focus:bg-white rounded-2xl outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400"
+                                        placeholder="username"
+                                        required={!isLogin}
+                                        minLength={3}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Password</label>
                             <div className="relative group">
@@ -104,6 +136,23 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                 />
                             </div>
                         </div>
+
+                        {!isLogin && (
+                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider ml-1">Confirm Password</label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-4 top-3.5 text-gray-400 group-focus-within:text-[#1a73e8] transition-colors" size={20} />
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className={`w-full pl-12 pr-4 py-3 bg-gray-50 border-2 ${confirmPassword && confirmPassword !== password ? 'border-red-200 focus:border-red-500' : 'border-transparent focus:border-[#1a73e8]/20'} focus:bg-white rounded-2xl outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400`}
+                                        placeholder="••••••••"
+                                        required={!isLogin}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         {error && (
                             <div className="p-3 rounded-xl bg-red-50 text-red-600 text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-1">

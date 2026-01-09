@@ -5,9 +5,10 @@ import { pdf } from '@react-pdf/renderer';
 import { useLanguageStore } from '@/store/useLanguageStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { useEventStore } from '@/store/useEventStore';
-import { CalendarDocument } from './pdf/CalendarDocument';
+import { useHolidayStore } from '@/store/useHolidayStore';
 import { Upload, Calendar as CalendarIcon } from 'lucide-react';
 import { startOfMonth, endOfMonth } from 'date-fns';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export const DownloadButton = () => {
     const { translations, getLocale } = useLanguageStore();
@@ -54,6 +55,7 @@ export const DownloadButton = () => {
             }
 
             // Generate PDF Blob
+            const { CalendarDocument } = await import('./pdf/CalendarDocument');
             const blob = await pdf(
                 <CalendarDocument
                     dates={datesToExport}
@@ -146,46 +148,50 @@ export const DownloadButton = () => {
                             </div>
                         </button>
 
-                        <div className="h-px bg-gray-100 my-1 mx-3"></div>
+                        {/* Customization Options - Only for Logged In Users */}
+                        {useAuthStore.getState().user && (
+                            <>
+                                <div className="h-px bg-gray-100 my-1 mx-3"></div>
 
-                        {/* Customization Options */}
-                        <div className="px-3 py-2 space-y-3">
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${customLogo ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-[#1a73e8]'}`}>
-                                    <Upload size={14} />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="text-xs font-semibold text-gray-900">
-                                        {customLogo ? 'Logo Uploaded' : 'Upload Logo'}
-                                    </div>
-                                    <div className="text-[10px] text-gray-500">
-                                        {customLogo ? 'Click to change' : 'Replace default logo'}
-                                    </div>
-                                </div>
-                                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                            </label>
+                                <div className="px-3 py-2 space-y-3">
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${customLogo ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-[#1a73e8]'}`}>
+                                            <Upload size={14} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-xs font-semibold text-gray-900">
+                                                {customLogo ? 'Logo Uploaded' : 'Upload Logo'}
+                                            </div>
+                                            <div className="text-[10px] text-gray-500">
+                                                {customLogo ? 'Click to change' : 'Replace default logo'}
+                                            </div>
+                                        </div>
+                                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                                    </label>
 
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIncludeEvents(!includeEvents);
-                                }}
-                                className="w-full flex items-center gap-3 text-left group"
-                            >
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${includeEvents ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
-                                    <CalendarIcon size={14} />
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIncludeEvents(!includeEvents);
+                                        }}
+                                        className="w-full flex items-center gap-3 text-left group"
+                                    >
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${includeEvents ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
+                                            <CalendarIcon size={14} />
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-semibold text-gray-900">Include Agenda</div>
+                                            <div className="text-[10px] text-gray-500">
+                                                {includeEvents ? 'Agenda will be shown' : 'Show my schedule'}
+                                            </div>
+                                        </div>
+                                        <div className={`w-8 h-4 ml-auto rounded-full p-0.5 transition-colors ${includeEvents ? 'bg-[#1a73e8]' : 'bg-gray-200'}`}>
+                                            <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${includeEvents ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                        </div>
+                                    </button>
                                 </div>
-                                <div>
-                                    <div className="text-xs font-semibold text-gray-900">Include Events</div>
-                                    <div className="text-[10px] text-gray-500">
-                                        {includeEvents ? 'Events will be shown' : 'Show my schedule'}
-                                    </div>
-                                </div>
-                                <div className={`w-8 h-4 ml-auto rounded-full p-0.5 transition-colors ${includeEvents ? 'bg-[#1a73e8]' : 'bg-gray-200'}`}>
-                                    <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${includeEvents ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                                </div>
-                            </button>
-                        </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

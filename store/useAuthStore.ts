@@ -5,8 +5,11 @@ import { User } from '@supabase/supabase-js';
 interface AuthState {
     user: User | null;
     sessionProcessed: boolean;
+    isAuthModalOpen: boolean;
     initialize: () => Promise<void>;
     signOut: () => Promise<void>;
+    openAuthModal: () => void;
+    closeAuthModal: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -26,4 +29,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         await supabase.auth.signOut();
         set({ user: null });
     },
+    isAuthModalOpen: false,
+    openAuthModal: () => set({ isAuthModalOpen: true }),
+    closeAuthModal: () => set({ isAuthModalOpen: false }),
 }));
