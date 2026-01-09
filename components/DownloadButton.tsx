@@ -4,13 +4,30 @@ import React, { useState } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { useLanguageStore } from '@/store/useLanguageStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
+import { useEventStore } from '@/store/useEventStore';
 import { CalendarDocument } from './pdf/CalendarDocument';
+import { Upload, Calendar as CalendarIcon } from 'lucide-react';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 export const DownloadButton = () => {
     const { translations, getLocale } = useLanguageStore();
     const { currentDate, selectedCalendars, showNativeScript } = useCalendarStore();
+    const { fetchEvents, events } = useEventStore();
     const [loading, setLoading] = useState(false);
     const [showOptions, setShowOptions] = useState(false);
+    const [customLogo, setCustomLogo] = useState<string | null>(null);
+    const [includeEvents, setIncludeEvents] = useState(false);
+
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setCustomLogo(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleDownload = async (mode: 'month' | 'year') => {
         setLoading(true);
@@ -28,6 +45,14 @@ export const DownloadButton = () => {
                 }
             }
 
+            if (includeEvents) {
+                // Ensure events are fetched for the export range
+                const start = datesToExport[0];
+                const end = endOfMonth(datesToExport[datesToExport.length - 1]);
+                await fetchEvents(start, end);
+                // We use the events from the store, which should be populated now
+            }
+
             // Generate PDF Blob
             const blob = await pdf(
                 <CalendarDocument
@@ -35,8 +60,9 @@ export const DownloadButton = () => {
                     selectedCalendars={selectedCalendars}
                     translations={translations}
                     locale={getLocale()}
-                    logoUrl={window.location.origin + '/logo.png'}
+                    logoUrl={customLogo || window.location.origin + '/logo.png'}
                     showNativeScript={showNativeScript}
+                    events={includeEvents ? events : undefined}
                 />
             ).toBlob();
 
@@ -119,6 +145,47 @@ export const DownloadButton = () => {
                                 <div className="text-xs text-gray-500 font-medium">12-page PDF bundle</div>
                             </div>
                         </button>
+
+                        <div className="h-px bg-gray-100 my-1 mx-3"></div>
+
+                        {/* Customization Options */}
+                        <div className="px-3 py-2 space-y-3">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${customLogo ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-[#1a73e8]'}`}>
+                                    <Upload size={14} />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-xs font-semibold text-gray-900">
+                                        {customLogo ? 'Logo Uploaded' : 'Upload Logo'}
+                                    </div>
+                                    <div className="text-[10px] text-gray-500">
+                                        {customLogo ? 'Click to change' : 'Replace default logo'}
+                                    </div>
+                                </div>
+                                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                            </label>
+
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIncludeEvents(!includeEvents);
+                                }}
+                                className="w-full flex items-center gap-3 text-left group"
+                            >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${includeEvents ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
+                                    <CalendarIcon size={14} />
+                                </div>
+                                <div>
+                                    <div className="text-xs font-semibold text-gray-900">Include Events</div>
+                                    <div className="text-[10px] text-gray-500">
+                                        {includeEvents ? 'Events will be shown' : 'Show my schedule'}
+                                    </div>
+                                </div>
+                                <div className={`w-8 h-4 ml-auto rounded-full p-0.5 transition-colors ${includeEvents ? 'bg-[#1a73e8]' : 'bg-gray-200'}`}>
+                                    <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${includeEvents ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

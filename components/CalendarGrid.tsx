@@ -4,6 +4,8 @@ import React from 'react';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { useLanguageStore } from '@/store/useLanguageStore';
 import { CalendarType, convertDate, toNativeNumerals } from '@/lib/calendars';
+import { useEventStore } from '@/store/useEventStore';
+import { EventModal } from './events/EventModal';
 import {
     startOfMonth,
     endOfMonth,
@@ -19,7 +21,15 @@ import {
 const MonthView = () => {
     const { currentDate, selectedCalendars, setDate, setViewMode, showNativeScript } = useCalendarStore();
     const { getLocale, translations } = useLanguageStore();
+    const { events, fetchEvents } = useEventStore();
     const locale = getLocale();
+
+    // Fetch events on mount or month change
+    React.useEffect(() => {
+        const start = startOfMonth(currentDate);
+        const end = endOfMonth(currentDate);
+        fetchEvents(start, end);
+    }, [currentDate, fetchEvents]);
 
     // Determine Primary Calendar (Gregorian if selected/default, otherwise the first selected)
     // Use the first selected calendar as primary, or default to Gregorian
@@ -182,6 +192,9 @@ const MonthView = () => {
                     const dayHolidays = selectedCalendars.map(id => convertDate(date, id as CalendarType, { locale }).holiday).filter(Boolean);
                     const hasHoliday = dayHolidays.length > 0;
 
+                    const dateKey = format(date, 'yyyy-MM-dd');
+                    const hasPersonalEvents = events[dateKey]?.length > 0;
+
                     return (
                         <div
                             key={idx}
@@ -236,6 +249,11 @@ const MonthView = () => {
                                             {(primaryCalendarId === 'gregorian' || !showNativeScript) ? primaryDateData.day : toNativeNumerals(primaryDateData.day, primaryCalendarId as CalendarType)}
                                         </span>
                                     </div>
+
+                                    {/* Personal Event Indicator */}
+                                    {hasPersonalEvents && (
+                                        <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#1a73e8] ring-2 ring-white"></div>
+                                    )}
                                 </span>
                             </div>
 
@@ -276,6 +294,7 @@ const MonthView = () => {
 export const CalendarGrid = () => {
     const { currentDate, selectedCalendars, showNativeScript, viewMode, setDate, setViewMode } = useCalendarStore();
     const { getLocale, translations } = useLanguageStore();
+    const [isEventModalOpen, setIsEventModalOpen] = React.useState(false);
     const locale = getLocale();
 
     if (viewMode === 'month') {
@@ -299,6 +318,15 @@ export const CalendarGrid = () => {
                     <h3 className="text-2xl font-medium text-[#202124] tracking-tight">
                         {format(currentDate, 'EEEE, d MMMM yyyy', { locale })}
                     </h3>
+
+                    {/* Event Trigger */}
+                    <button
+                        onClick={() => setIsEventModalOpen(true)}
+                        className="mt-2 text-sm font-bold text-[#1a73e8] hover:underline flex items-center gap-1"
+                    >
+                        <span>View Schedule</span>
+                        <span className="w-5 h-5 rounded-full bg-[#e8f0fe] flex items-center justify-center text-[10px]">+</span>
+                    </button>
                 </div>
                 <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-2 shrink-0 print:hidden bg-[#f8f9fa] md:bg-transparent p-1 md:p-0 rounded-full md:rounded-none">
                     <button
@@ -420,6 +448,12 @@ export const CalendarGrid = () => {
                     );
                 })}
             </div>
+            {/* Event Modal */}
+            <EventModal
+                isOpen={isEventModalOpen}
+                onClose={() => setIsEventModalOpen(false)}
+                date={currentDate}
+            />
         </div>
     );
 };

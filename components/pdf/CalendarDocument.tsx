@@ -177,9 +177,10 @@ interface CalendarDocumentProps {
     locale: any;
     logoUrl?: string;
     showNativeScript?: boolean;
+    events?: Record<string, any[]>;
 }
 
-export const CalendarDocument = ({ dates, selectedCalendars, translations, locale, logoUrl, showNativeScript = false }: CalendarDocumentProps) => {
+export const CalendarDocument = ({ dates, selectedCalendars, translations, locale, logoUrl, showNativeScript = false, events }: CalendarDocumentProps) => {
     // Logic extracted from MonthView
     // Logic should match MonthView: Use first selected as primary
     const primaryCalendarId = selectedCalendars.length > 0 ? selectedCalendars[0] : 'gregorian';
@@ -338,6 +339,9 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
 
                                 const hasHoliday = dayHolidays.length > 0;
 
+                                const dateKey = format(date, 'yyyy-MM-dd');
+                                const dayEvents = events?.[dateKey] || [];
+
                                 return (
                                     <View
                                         key={idx}
@@ -400,8 +404,20 @@ export const CalendarDocument = ({ dates, selectedCalendars, translations, local
 
                                         {/* Holiday Text */}
                                         {isCurrentMonth && dayHolidays.slice(0, 2).map((h, hIdx) => (
-                                            <Text key={hIdx} style={styles.holidayText}>
+                                            <Text key={`hol-${hIdx}`} style={styles.holidayText}>
                                                 {h.length > 25 ? h.substring(0, 25) + '...' : h}
+                                            </Text>
+                                        ))}
+
+                                        {/* Personal Events in PDF */}
+                                        {isCurrentMonth && dayEvents.map((evt: any, eIdx: number) => (
+                                            <Text key={`evt-${eIdx}`} style={{
+                                                fontSize: 8,
+                                                color: '#1a73e8', // Blue for personal events
+                                                marginTop: 2,
+                                                fontWeight: 'bold',
+                                            }}>
+                                                • {evt.title.length > 15 ? evt.title.substring(0, 15) + '...' : evt.title}
                                             </Text>
                                         ))}
                                     </View>
