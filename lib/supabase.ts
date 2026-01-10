@@ -9,6 +9,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 // Ensure createClient doesn't throw during build by providing dummy values if missing
 export const supabase = createClient(
-    supabaseUrl || 'https://placeholder-url.supabase.co',
-    supabaseAnonKey || 'placeholder-anon-key'
+    supabaseUrl || 'https://hyvplgoahszlgdehcsqi.supabase.co',
+    supabaseAnonKey || 'sb_publishable_f7uNSBPT-lBIdWSdxHv8dA_U5g45ZTd'
 );
