@@ -5,6 +5,7 @@ import { Printer, Loader2 } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { CalendarDocument } from '../pdf/CalendarDocument';
 import { useLanguageStore } from '@/store/useLanguageStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 
 interface MyCalendarPrintButtonProps {
     viewYear: number;
@@ -16,6 +17,7 @@ interface MyCalendarPrintButtonProps {
 export const MyCalendarPrintButton = ({ viewYear, events, weeklyHoliday, specialDay }: MyCalendarPrintButtonProps) => {
     const [loading, setLoading] = useState(false);
     const { translations, getLocale } = useLanguageStore();
+    const { addToast } = useNotificationStore();
 
     const handlePrint = async () => {
         setLoading(true);
@@ -66,7 +68,7 @@ export const MyCalendarPrintButton = ({ viewYear, events, weeklyHoliday, special
 
         } catch (error) {
             console.error('Print generation failed', error);
-            alert('Failed to generate PDF');
+            addToast('Failed to generate PDF', 'error');
         } finally {
             setLoading(false);
         }

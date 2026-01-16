@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEventStore } from '@/store/useEventStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 import { supabase } from '@/lib/supabase';
 import { format, startOfYear, endOfYear, eachMonthOfInterval, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, startOfMonth, endOfMonth } from 'date-fns';
 import { ChevronLeft, ChevronRight, Printer, ArrowLeft, Plus, Save, Trash2, Calendar as CalendarIcon, Edit2 } from 'lucide-react';
@@ -20,6 +21,7 @@ interface SavedCalendar {
 export default function MyCalendarsPage() {
     const { user, initialize: initAuth } = useAuthStore();
     const { events, fetchEvents } = useEventStore();
+    const { addToast, confirm } = useNotificationStore();
     const router = useRouter();
 
     // UI State
@@ -92,15 +94,21 @@ export default function MyCalendarsPage() {
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm('Are you sure you want to delete this calendar?')) return;
-
-        const { error } = await supabase.from('saved_calendars').delete().eq('id', id);
-        if (error) {
-            console.error('Error deleting calendar:', error);
-            alert('Failed to delete calendar');
-        } else {
-            fetchSavedCalendars();
-        }
+        confirm({
+            title: 'Delete Calendar',
+            message: 'Are you sure you want to delete this calendar? This action cannot be undone.',
+            confirmText: 'Delete',
+            type: 'danger',
+            onConfirm: async () => {
+                const { error } = await supabase.from('saved_calendars').delete().eq('id', id);
+                if (error) {
+                    addToast('Failed to delete calendar', 'error');
+                } else {
+                    addToast('Calendar deleted', 'success');
+                    fetchSavedCalendars();
+                }
+            }
+        });
     };
 
     const handleSaveString = async () => {
@@ -127,10 +135,9 @@ export default function MyCalendarsPage() {
         }
 
         if (error) {
-            console.error('Error saving calendar:', error);
-            alert('Failed to save calendar');
+            addToast('Failed to save calendar', 'error');
         } else {
-            alert('Calendar saved successfully!');
+            addToast('Calendar saved successfully!', 'success');
             fetchSavedCalendars();
             setMode('list');
         }

@@ -8,9 +8,10 @@ import { LanguageSelector } from './LanguageSelector';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, LogOut, User as UserIcon } from 'lucide-react';
+import Link from 'next/link';
 
 export const Navbar = () => {
-    const { user, signOut, initialize, isAuthModalOpen, openAuthModal, closeAuthModal } = useAuthStore();
+    const { user, signOut, initialize } = useAuthStore();
     const [showProfileMenu, setShowProfileMenu] = React.useState(false);
     const router = useRouter();
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -41,21 +42,9 @@ export const Navbar = () => {
                         </div>
                     </div>
 
-                    {user && (
-                        <div className="flex items-center gap-3 border-l border-gray-100 pl-4 md:pl-8">
-                            <button
-                                onClick={() => router.push('/profile')}
-                                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-[#1a73e8] bg-[#1a73e8]/5 hover:bg-[#1a73e8]/10 rounded-full transition-all"
-                            >
-                                <LayoutDashboard size={18} />
-                                <span className="hidden sm:inline">Dashboard</span>
-                            </button>
-                        </div>
-                    )}
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <LanguageSelector />
                     <DonationButton />
                     {/* User Account Button */}
                     {user ? (
@@ -71,7 +60,7 @@ export const Navbar = () => {
                                 </button>
 
                                 {showProfileMenu && (
-                                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                    <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2">
                                         <div className="px-4 py-3 border-b border-gray-50">
                                             <p className="text-xs text-gray-500 font-medium">Signed in as</p>
                                             <p className="text-sm font-bold text-gray-900 truncate">
@@ -93,13 +82,13 @@ export const Navbar = () => {
                             </div>
                         </div>
                     ) : (
-                        <button
-                            onClick={openAuthModal}
-                            className="px-5 py-2 rounded-full bg-[#1a73e8] hover:bg-[#185abc] text-white font-medium text-sm transition-all shadow-sm hover:shadow-md active:scale-95 flex items-center gap-2"
+                        <Link
+                            href="/auth"
+                            className="h-10 px-5 rounded-xl bg-[#1a73e8] hover:bg-[#185abc] text-white font-medium text-sm transition-all shadow-sm hover:shadow-md active:scale-95 flex items-center gap-2"
                         >
                             <UserIcon size={16} />
                             <span className="hidden md:inline">Sign In</span>
-                        </button>
+                        </Link>
                     )}
                     {/* Profile Modal Removed - redirects to /profile now */}
                 </div>

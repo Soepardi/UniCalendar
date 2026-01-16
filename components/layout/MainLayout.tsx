@@ -22,8 +22,8 @@ const CalendarControls = dynamic(
 export const MainLayout = ({ children }: { children: React.ReactNode }) => {
     const pathname = usePathname();
 
-    // If we are on the dashboard (Todoist-style), return children directly (no global wrapper)
-    if (pathname === '/profile' || pathname === '/my-calendars') {
+    // If we are on the dashboard or auth page, return children directly (no global wrapper)
+    if (pathname === '/profile' || pathname === '/my-calendars' || pathname === '/auth') {
         return <>{children}</>;
     }
 
@@ -38,12 +38,12 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
             {/* Main Content Area */}
             <main className="flex-1">
-                <div className="max-w-7xl mx-auto px-6 py-12">
-                    <div className="mb-12">
+                <div className="max-w-7xl mx-auto px-6 pt-12">
+                    <div className="mb-6">
                         <CalendarControls />
                     </div>
-                    {children}
                 </div>
+                {children}
             </main>
         </div>
     );

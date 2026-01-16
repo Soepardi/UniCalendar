@@ -7,7 +7,8 @@ import {
     Search, Inbox, CalendarDays, Grip, MoreHorizontal, Hash, HelpCircle,
     Bell, Layout, CheckCircle2, Circle, Menu, X, Settings,
     ChevronLeft, ChevronRight, Calendar as CalendarIconLucide,
-    Download, Globe, Monitor, Moon, Sun, ChevronDown, LogOut
+    Download, Globe, Monitor, Moon, Sun, ChevronDown, LogOut, RefreshCw,
+    Users, UserPlus, Share2, ListTodo, Library, Check
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEventStore } from '@/store/useEventStore';
@@ -25,23 +26,35 @@ const DownloadButton = dynamic(
     () => import('@/components/DownloadButton').then((mod) => mod.DownloadButton),
     { ssr: false }
 );
+import { TeamManagement } from '@/components/teams/TeamManagement';
+import { CreateTeamModal } from '@/components/teams/CreateTeamModal';
 
 // Stores & Utils
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { useLanguageStore } from '@/store/useLanguageStore';
-import { CalendarType, convertDate, toNativeNumerals } from '@/lib/calendars';
+import { useTeamStore } from '@/store/useTeamStore';
+import { CalendarType, convertDate, toNativeNumerals, CALENDAR_META } from '@/lib/calendars';
 
 // Dynamic Imports
 
 
 const CalendarGrid = dynamic(() => import('@/components/CalendarGrid').then(mod => mod.CalendarGrid), {
     ssr: false,
-    loading: () => <div className="h-[400px] bg-gray-50 rounded-xl animate-pulse"></div>
+    loading: () => <div className="h-[400px] bg-gray-50 rounded-2xl animate-pulse"></div>
 });
 
 export default function DashboardPage() {
-    const { user, initialize: initAuth } = useAuthStore();
-    const { events, fetchEvents, deleteEvent, archiveEvent, initialized: eventsInitialized } = useEventStore();
+    const { user, profile, initialize: initAuth } = useAuthStore();
+    const {
+        events, fetchEvents,
+        deleteEvent: deleteEventAction,
+        archiveEvent: archiveEventAction,
+        initialized: eventsInitialized
+    } = useEventStore();
+    const {
+        teams, fetchTeams, currentTeamId, setCurrentTeamId,
+        initialized: teamsInitialized
+    } = useTeamStore();
     const { getLocale } = useLanguageStore();
     const router = useRouter();
 
@@ -49,6 +62,7 @@ export default function DashboardPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [activeTab, setActiveTab] = useState('Today');
     const [isCalendarsExpanded, setIsCalendarsExpanded] = useState(true);
+    const [isTeamsExpanded, setIsTeamsExpanded] = useState(true);
 
     // Calendar Store Integration
     const {
@@ -60,6 +74,12 @@ export default function DashboardPage() {
     // Event Editing
     const [editingEventDate, setEditingEventDate] = useState<Date | null>(null);
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+    const [recurrenceModal, setRecurrenceModal] = useState<{
+        isOpen: boolean;
+        type: 'archive' | 'delete';
+        eventId: string;
+        date: string;
+    } | null>(null);
     const [upcomingFilter, setUpcomingFilter] = useState<'today' | 'month'>('month');
 
     // Search State
@@ -69,6 +89,8 @@ export default function DashboardPage() {
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [upcomingPage, setUpcomingPage] = useState(1);
     const [finishedPage, setFinishedPage] = useState(1);
+    const [managingTeamId, setManagingTeamId] = useState<string | null>(null);
+    const [isCreateTeamModalOpen, setIsCreateTeamModalOpen] = useState(false);
 
     // Sync activeTab with global viewMode
     useEffect(() => {
@@ -103,7 +125,8 @@ export default function DashboardPage() {
     // Initialize Auth
     useEffect(() => {
         initAuth();
-    }, [initAuth]);
+        fetchTeams();
+    }, [initAuth, fetchTeams]);
 
     // Handle Hydration Mismatch
     const [mounted, setMounted] = useState(false);
@@ -117,58 +140,101 @@ export default function DashboardPage() {
             const start = new Date();
             start.setMonth(start.getMonth() - 1);
             const end = new Date();
-            end.setFullYear(end.getFullYear() + 2);
+            end.setMonth(end.getMonth() + 3); // Load only 4 months initially
             fetchEvents(start, end);
         }
     }, [user, eventsInitialized, fetchEvents]);
 
-    if (!mounted || !user) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-white">
-                <Loader2 className="w-8 h-8 animate-spin text-[#d93025]" />
-            </div>
-        );
-    }
-
-    // Filter Events based on Active Tab
+    // Filter Events based on Active Tab & Selected Team
     const today = new Date();
-    const allEvents = Object.entries(events)
-        .flatMap(([key, dayEvents]) => dayEvents.map((event: any) => {
-            const dateStr = event.time ? `${key}T${event.time}:00` : (event.dateStr || key);
-            return { ...event, dateStr };
-        }))
-        .sort((a, b) => new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime());
+    const allEvents = React.useMemo(() => {
+        return Object.entries(events)
+            .flatMap(([key, dayEvents]) => dayEvents.map((event: any) => {
+                const dateStr = event.time ? `${key}T${event.time}:00` : (event.dateStr || key);
+                return { ...event, dateStr };
+            }))
+            .filter((event: any) => {
+                if (currentTeamId) {
+                    return event.team_id === currentTeamId;
+                } else {
+                    return !event.team_id;
+                }
+            })
+            .sort((a, b) => new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime()); // Fixed sort b.dateStr
+    }, [events, currentTeamId]);
 
-    const todayEventsCount = allEvents.filter(e => isSameDay(parseISO(e.dateStr), new Date())).length;
-    const currentMonthEventsCount = allEvents.filter(e => {
-        const d = parseISO(e.dateStr);
-        return d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
-    }).length;
-
-    const filteredEvents = allEvents.filter(event => {
-        const eventDate = parseISO(event.dateStr);
-        if (activeTab === 'Today') {
-            return isSameDay(eventDate, today);
+    // Wrap store actions to handle recurrence choice
+    const handleArchive = (id: string, date: string) => {
+        const event = allEvents.find(e => e.id === id);
+        if (event?.recurrence && event.recurrence !== 'none') {
+            setRecurrenceModal({ isOpen: true, type: 'archive', eventId: id, date });
+        } else {
+            archiveEventAction(id, date, 'all');
         }
-        if (activeTab === 'Tasks') {
-            const isToday = isSameDay(eventDate, today);
-            const isFuture = isAfter(eventDate, today);
-            return true;
+    };
+
+    const handleDelete = (id: string, date: string) => {
+        const event = allEvents.find(e => e.id === id);
+        if (event?.recurrence && event.recurrence !== 'none') {
+            setRecurrenceModal({ isOpen: true, type: 'delete', eventId: id, date });
+        } else {
+            deleteEventAction(id, date, 'all');
         }
-        return true; // Inbox/All
-    });
+    };
 
+    const todayEventsCount = React.useMemo(() =>
+        allEvents.filter(e => isSameDay(parseISO(e.dateStr), new Date())).length,
+        [allEvents]);
 
+    const currentMonthEventsCount = React.useMemo(() =>
+        allEvents.filter(e => {
+            const d = parseISO(e.dateStr);
+            return d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
+        }).length,
+        [allEvents]);
 
-    const overdueEvents = allEvents.filter(event => {
-        const eventDate = parseISO(event.dateStr);
-        return isAfter(today, eventDate) && !isSameDay(eventDate, today);
-    });
+    const filteredEvents = React.useMemo(() => {
+        const today = new Date();
+        return allEvents.filter(event => {
+            const eventDate = parseISO(event.dateStr);
+            if (activeTab === 'Today') {
+                return isSameDay(eventDate, today);
+            }
+            return true; // Inbox/All/Tasks
+        });
+    }, [allEvents, activeTab]);
+
+    const overdueEvents = React.useMemo(() => {
+        const today = new Date();
+        return allEvents.filter(event => {
+            const eventDate = parseISO(event.dateStr);
+            return isAfter(today, eventDate) && !isSameDay(eventDate, today);
+        });
+    }, [allEvents]);
 
 
 
     return (
         <div className="flex h-screen bg-white overflow-hidden relative">
+            {/* Modals */}
+            {managingTeamId && (
+                <TeamManagement
+                    teamId={managingTeamId}
+                    onClose={() => setManagingTeamId(null)}
+                />
+            )}
+            {isCreateTeamModalOpen && (
+                <CreateTeamModal
+                    isOpen={isCreateTeamModalOpen}
+                    onClose={() => setIsCreateTeamModalOpen(false)}
+                />
+            )}
+            <EventModal
+                isOpen={isEventModalOpen}
+                onClose={() => setIsEventModalOpen(false)}
+                date={editingEventDate || new Date()}
+            />
+
             {/* Mobile Overlay */}
             {isSidebarOpen && (
                 <div
@@ -230,8 +296,63 @@ export default function DashboardPage() {
                         />
                         <SidebarItem icon={CalendarDays} label="Today" count={todayEventsCount} onClick={() => { setActiveTab('Today'); setViewMode('day'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} active={activeTab === 'Today'} />
                         <SidebarItem icon={CalendarDays} label="Month" count={currentMonthEventsCount} onClick={() => { setActiveTab('Month'); setViewMode('month'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} active={activeTab === 'Month'} />
-                        <SidebarItem icon={CalendarIcon} label="Tasks" onClick={() => { setActiveTab('Tasks'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} active={activeTab === 'Tasks'} />
-                        <SidebarItem icon={CalendarIcon} label="My Calendars" onClick={() => { setActiveTab('MyCalendars'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} active={activeTab === 'MyCalendars'} />
+                        <SidebarItem icon={ListTodo} label="Tasks" onClick={() => { setActiveTab('Tasks'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} active={activeTab === 'Tasks'} />
+                        <SidebarItem icon={Library} label="My Calendars" onClick={() => { setActiveTab('MyCalendars'); if (window.innerWidth < 768) setIsSidebarOpen(false); }} active={activeTab === 'MyCalendars'} />
+                    </div>
+
+                    {/* Teams Section */}
+                    <div className="mt-8">
+                        <button
+                            onClick={() => setIsTeamsExpanded(!isTeamsExpanded)}
+                            className="flex items-center justify-between w-full px-2 py-1 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-gray-900 transition-colors group"
+                        >
+                            <span className="flex items-center gap-2">
+                                <Users size={12} />
+                                Teams
+                            </span>
+                            <ChevronDown size={14} className={`transition-transform duration-200 ${isTeamsExpanded ? '' : '-rotate-90'}`} />
+                        </button>
+
+                        {isTeamsExpanded && (
+                            <div className="mt-2 space-y-0.5">
+                                <button
+                                    onClick={() => setCurrentTeamId(null)}
+                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${!currentTeamId ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-gray-600 hover:bg-gray-100'}`}
+                                >
+                                    <div className={`w-2 h-2 rounded-full ${!currentTeamId ? 'bg-[#1a73e8]' : 'bg-gray-300'}`} />
+                                    Personal
+                                </button>
+
+                                {teams.map(team => (
+                                    <div
+                                        key={team.id}
+                                        onClick={() => setCurrentTeamId(team.id)}
+                                        className={`group relative w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${currentTeamId === team.id ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-gray-600 hover:bg-gray-100'}`}
+                                    >
+                                        <div className="flex items-center gap-3 truncate">
+                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${currentTeamId === team.id ? 'bg-[#1a73e8]' : 'bg-gray-400 opacity-50'}`} />
+                                            <span className="truncate">{team.name}</span>
+                                        </div>
+                                        {(team.owner_id === user?.id) && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setManagingTeamId(team.id); }}
+                                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/50 rounded transition-all text-gray-400 hover:text-gray-600"
+                                            >
+                                                <Settings size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+
+                                <button
+                                    onClick={() => setIsCreateTeamModalOpen(true)}
+                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all dashed border border-dashed border-gray-200 mt-2"
+                                >
+                                    <Plus size={14} />
+                                    <span>Create Team</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Calendars Section in Sidebar (Collapsible) */}
@@ -240,15 +361,19 @@ export default function DashboardPage() {
                     <div className="mt-auto pt-8 relative">
                         <button
                             onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                            className="flex items-center justify-between w-full px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors group"
+                            className="flex items-center justify-between w-full px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-xl transition-colors group"
                         >
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 group-hover:bg-[#e8f0fe] group-hover:text-[#1a73e8] transition-colors">
                                     <User size={16} />
                                 </div>
-                                <div className="text-left">
-                                    <span className="block font-semibold leading-none">Profile</span>
-                                    <span className="text-[10px] text-gray-400">Manage account</span>
+                                <div className="text-left truncate max-w-[140px]">
+                                    <span className="block font-semibold leading-none truncate">
+                                        {profile?.full_name || profile?.username || user?.email?.split('@')[0] || 'Profile'}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400 truncate block">
+                                        {user?.email}
+                                    </span>
                                 </div>
                             </div>
                             <ChevronDown size={14} className={`text-gray-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
@@ -257,7 +382,7 @@ export default function DashboardPage() {
                         {isProfileDropdownOpen && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setIsProfileDropdownOpen(false)}></div>
-                                <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-xl shadow-xl border border-gray-100 z-20 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                                <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-2xl shadow-xl border border-gray-100 z-20 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
                                     <button
                                         onClick={() => {
                                             setActiveTab('Settings');
@@ -272,7 +397,7 @@ export default function DashboardPage() {
                                     <button
                                         onClick={async () => {
                                             await useAuthStore.getState().signOut();
-                                            router.push('/login');
+                                            router.push('/');
                                         }}
                                         className="w-full text-left px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
                                     >
@@ -292,66 +417,65 @@ export default function DashboardPage() {
                     {/* New Dashboard Calendar Header */}
                     {/* Compact Header Toolbar */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 pt-2 relative z-30 gap-4 md:gap-0">
-                        <div className="flex items-center gap-4 justify-between md:justify-start w-full md:w-auto">
-                            <div className="flex items-center gap-4">
-                                <button onClick={toggleSidebar} className="p-2 hover:bg-gray-100 rounded-md text-gray-600 transition-colors">
-                                    {isSidebarOpen ? <Layout size={20} /> : <Menu size={20} />}
-                                </button>
+                        <div className="flex items-center gap-2 md:gap-4 justify-between md:justify-start w-full md:w-auto">
+                            <div className="flex items-center gap-2 md:gap-4">
+                                <div className="flex items-center gap-4">
+                                    <button onClick={toggleSidebar} className="p-2 hover:bg-gray-100 rounded-xl text-gray-600 transition-colors">
+                                        {isSidebarOpen ? <Layout size={20} /> : <Menu size={20} />}
+                                    </button>
 
-                                <h1 className="text-xl md:text-2xl font-bold text-[#202124] leading-none truncate">
-                                    {activeTab === 'MyCalendars' ? 'My Calendars' : activeTab}
-                                </h1>
+                                    <h1 className="text-xl md:text-2xl font-bold text-[#202124] leading-none truncate">
+                                        {activeTab === 'MyCalendars' ? 'My Calendars' : activeTab}
+                                    </h1>
+                                </div>
+
+                                <div className="hidden md:block h-6 w-px bg-gray-200 mx-2"></div>
+
+                                {/* Date Navigation - Hide for My Calendars, Settings, and Tasks */}
+                                {activeTab !== 'MyCalendars' && activeTab !== 'Settings' && activeTab !== 'Tasks' && (
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex items-center bg-transparent hover:bg-gray-100 rounded-xl px-2 py-1 transition-colors cursor-pointer gap-2 text-gray-700">
+                                            {/* Native Date Picker Overlay */}
+                                            <input
+                                                type="date"
+                                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                                                style={{ opacity: 0 }}
+                                                value={format(currentDate, 'yyyy-MM-dd')}
+                                                onClick={(e) => {
+                                                    try {
+                                                        e.currentTarget.showPicker();
+                                                    } catch (err) {
+                                                        // Fallback
+                                                    }
+                                                }}
+                                                onChange={(e) => {
+                                                    if (e.target.value) {
+                                                        const newDate = parseISO(e.target.value);
+                                                        setDate(newDate);
+                                                    }
+                                                }}
+                                            />
+                                            <span className="text-sm font-semibold pointer-events-none">{format(currentDate, 'MMMM yyyy')}</span>
+                                            <ChevronDown size={14} className="text-gray-400 pointer-events-none" />
+                                        </div>
+                                        <div className="flex items-center gap-1 text-gray-500 bg-gray-50 rounded-xl p-0.5 border border-gray-100">
+                                            <button className="p-1 hover:bg-white hover:shadow-sm rounded-xl transition-all" onClick={() => setDate(activeTab === 'Month' ? addMonths(currentDate, -1) : addDays(currentDate, -1))}>
+                                                <ChevronLeft size={16} />
+                                            </button>
+                                            <button
+                                                className="text-xs font-semibold px-2 py-1 hover:bg-white hover:shadow-sm rounded-xl transition-all text-gray-600"
+                                                onClick={() => setDate(new Date())}
+                                            >
+                                                Today
+                                            </button>
+                                            <button className="p-1 hover:bg-white hover:shadow-sm rounded-xl transition-all" onClick={() => setDate(activeTab === 'Month' ? addMonths(currentDate, 1) : addDays(currentDate, 1))}>
+                                                <ChevronRight size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-
-                            {/* Mobile Calendar Controls (shown in same row on mobile if needed, or hidden) */}
-                            {/* For now, keep simple on mobile */}
                         </div>
-
-                        <div className="hidden md:block h-6 w-px bg-gray-200 mx-2"></div>
-
-                        {/* Date Navigation - Hide for My Calendars, Settings, and Tasks */}
-                        {activeTab !== 'MyCalendars' && activeTab !== 'Settings' && activeTab !== 'Tasks' && (
-                            <div className="flex items-center gap-2">
-                                <div className="relative flex items-center bg-transparent hover:bg-gray-100 rounded-md px-2 py-1 transition-colors cursor-pointer gap-2 text-gray-700">
-                                    {/* Native Date Picker Overlay */}
-                                    <input
-                                        type="date"
-                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                                        style={{ opacity: 0 }}
-                                        value={format(currentDate, 'yyyy-MM-dd')}
-                                        onClick={(e) => {
-                                            try {
-                                                e.currentTarget.showPicker();
-                                            } catch (err) {
-                                                // Fallback
-                                            }
-                                        }}
-                                        onChange={(e) => {
-                                            if (e.target.value) {
-                                                const newDate = parseISO(e.target.value);
-                                                setDate(newDate);
-                                            }
-                                        }}
-                                    />
-                                    <span className="text-sm font-semibold pointer-events-none">{format(currentDate, 'MMMM yyyy')}</span>
-                                    <ChevronDown size={14} className="text-gray-400 pointer-events-none" />
-                                </div>
-                                <div className="flex items-center gap-1 text-gray-500 bg-gray-50 rounded-lg p-0.5 border border-gray-100">
-                                    <button className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all" onClick={() => setDate(activeTab === 'Month' ? addMonths(currentDate, -1) : addDays(currentDate, -1))}>
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                    <button
-                                        className="text-xs font-semibold px-2 py-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600"
-                                        onClick={() => setDate(new Date())}
-                                    >
-                                        Today
-                                    </button>
-                                    <button className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all" onClick={() => setDate(activeTab === 'Month' ? addMonths(currentDate, 1) : addDays(currentDate, 1))}>
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
 
 
                         {/* Right Actions */}
@@ -359,16 +483,16 @@ export default function DashboardPage() {
                             {/* Tasks View Filters */}
                             {activeTab === 'Tasks' && (
                                 <>
-                                    <div className="flex bg-gray-100 p-0.5 rounded-lg mr-2">
+                                    <div className="flex bg-gray-100 p-0.5 rounded-xl mr-2">
                                         <button
                                             onClick={() => setUpcomingFilter('today')}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${upcomingFilter === 'today' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${upcomingFilter === 'today' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                         >
                                             Today
                                         </button>
                                         <button
                                             onClick={() => setUpcomingFilter('month')}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${upcomingFilter === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${upcomingFilter === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                                         >
                                             This Month
                                         </button>
@@ -385,7 +509,7 @@ export default function DashboardPage() {
                                                 setUpcomingPage(1);
                                                 setFinishedPage(1);
                                             }}
-                                            className="bg-gray-100 border-none rounded-md py-1 pl-2 pr-6 text-xs font-semibold focus:ring-1 focus:ring-gray-300 cursor-pointer"
+                                            className="bg-gray-100 border-none rounded-xl py-1 pl-2 pr-6 text-xs font-semibold focus:ring-1 focus:ring-gray-300 cursor-pointer"
                                         >
                                             <option value={10}>10</option>
                                             <option value={20}>20</option>
@@ -403,7 +527,7 @@ export default function DashboardPage() {
                                     <div className="relative">
                                         <button
                                             onClick={() => setIsCalendarDropdownOpen(!isCalendarDropdownOpen)}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-md text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all"
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all"
                                         >
                                             <CalendarIcon size={14} className="text-gray-500" />
                                             <span className="hidden md:inline">Calendars</span>
@@ -413,25 +537,30 @@ export default function DashboardPage() {
                                         {isCalendarDropdownOpen && (
                                             <>
                                                 <div className="fixed inset-0 z-10" onClick={() => setIsCalendarDropdownOpen(false)}></div>
-                                                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-100 z-20 p-2 animate-in fade-in slide-in-from-top-2">
+                                                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 z-20 p-2 animate-in fade-in slide-in-from-top-2">
                                                     <div className="px-2 py-1.5 mb-1 border-b border-gray-100">
                                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Select Calendars</span>
                                                     </div>
-                                                    <div className="max-h-[300px] overflow-y-auto space-y-0.5">
-                                                        {Object.keys(translations?.calendar_names || {}).map((calId) => (
+                                                    <div className="max-h-[300px] overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-gray-200">
+                                                        {Object.entries(CALENDAR_META).map(([calId, meta]) => (
                                                             <button
                                                                 key={calId}
                                                                 onClick={() => {
                                                                     toggleCalendar(calId as CalendarType);
                                                                 }}
-                                                                className={`flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm transition-colors group ${selectedCalendars.includes(calId as CalendarType) ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-gray-600 hover:bg-[#f8f9fa]'}`}
+                                                                className={`flex items-center justify-between w-full px-4 py-2.5 rounded-xl text-sm transition-all group ${selectedCalendars.includes(calId as CalendarType) ? 'bg-[#e8f0fe] text-[#1a73e8]' : 'text-gray-600 hover:bg-[#f8f9fa]'}`}
                                                             >
-                                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${selectedCalendars.includes(calId as CalendarType) ? 'border-[#1a73e8] bg-[#1a73e8]' : 'border-gray-300'}`}>
-                                                                    {selectedCalendars.includes(calId as CalendarType) && <CheckCircle2 size={10} className="text-white" />}
+                                                                <div className="flex flex-col text-left">
+                                                                    <div className="font-bold leading-tight">
+                                                                        {translations?.calendar_names[calId as CalendarType] || meta.name}
+                                                                    </div>
+                                                                    <div className="text-[10px] opacity-70 font-medium">
+                                                                        {meta.description}
+                                                                    </div>
                                                                 </div>
-                                                                <span className="truncate text-left flex-1">
-                                                                    {translations?.calendar_names[calId as CalendarType] || calId}
-                                                                </span>
+                                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${selectedCalendars.includes(calId as CalendarType) ? 'border-[#1a73e8] bg-[#1a73e8]' : 'border-gray-300 bg-white group-hover:border-gray-400'}`}>
+                                                                    {selectedCalendars.includes(calId as CalendarType) && <Check size={10} strokeWidth={4} className="text-white" />}
+                                                                </div>
                                                             </button>
                                                         ))}
                                                     </div>
@@ -453,7 +582,7 @@ export default function DashboardPage() {
                                     <button
                                         onClick={toggleNativeScript}
                                         title="Toggle Native Script"
-                                        className={`p-2 rounded-md transition-all border ${showNativeScript ? 'bg-[#1a73e8]/10 border-[#1a73e8] text-[#1a73e8]' : 'bg-white border-transparent hover:bg-gray-50 text-gray-500'}`}
+                                        className={`p-2 rounded-xl transition-all border ${showNativeScript ? 'bg-[#1a73e8]/10 border-[#1a73e8] text-[#1a73e8]' : 'bg-white border-transparent hover:bg-gray-50 text-gray-500'}`}
                                     >
                                         <Globe size={18} />
                                     </button>
@@ -512,27 +641,32 @@ export default function DashboardPage() {
                                     const daysWindow = Array.from({ length: 7 }, (_, i) => addDays(start, i));
 
                                     // Render Header Strip
-                                    return daysWindow.map((day, i) => {
-                                        const isSelected = isSameDay(day, currentDate);
-                                        const isToday = isSameDay(day, new Date());
-                                        return (
-                                            <div
-                                                key={i}
-                                                onClick={() => setDate(day)}
-                                                className={`flex-1 min-w-[100px] flex flex-col items-center justify-center py-3 border-b-2 cursor-pointer transition-colors ${isSelected ? 'border-violet-500 bg-violet-50' : 'border-transparent hover:bg-gray-100'}`}
-                                            >
-                                                <span className={`text-xs font-medium mb-0.5 ${isSelected ? 'text-violet-600' : 'text-gray-500'}`}>{format(day, 'EEE')}</span>
-                                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${isSelected && !isToday
-                                                        ? 'bg-transparent border-2 border-violet-500 text-violet-600'
-                                                        : isToday
-                                                            ? 'bg-[#1a73e8] text-white'
-                                                            : 'text-gray-900 group-hover:bg-gray-200'
-                                                    }`}>
-                                                    {format(day, 'd')}
-                                                </div>
-                                            </div>
-                                        );
-                                    });
+                                    return (
+                                        <>
+                                            <div className="w-16 flex-shrink-0 bg-white/50 border-r border-gray-100"></div>
+                                            {daysWindow.map((day, i) => {
+                                                const isSelected = isSameDay(day, currentDate);
+                                                const isToday = isSameDay(day, new Date());
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        onClick={() => setDate(day)}
+                                                        className={`flex-1 min-w-[100px] flex flex-col items-center justify-center py-3 border-b-2 cursor-pointer transition-colors ${isSelected ? 'border-violet-500 bg-violet-50' : 'border-transparent hover:bg-gray-100'}`}
+                                                    >
+                                                        <span className={`text-xs font-medium mb-0.5 ${isSelected ? 'text-violet-600' : 'text-gray-500'}`}>{format(day, 'EEE')}</span>
+                                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${isSelected && !isToday
+                                                            ? 'bg-transparent border-2 border-violet-500 text-violet-600'
+                                                            : isToday
+                                                                ? 'bg-[#1a73e8] text-white'
+                                                                : 'text-gray-900 group-hover:bg-gray-200'
+                                                            }`}>
+                                                            {format(day, 'd')}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </>
+                                    );
                                 })()}
                             </div>
 
@@ -579,8 +713,8 @@ export default function DashboardPage() {
                                                 key={`${event.id}-${event.dateStr}`}
                                                 event={event}
                                                 onEdit={() => { setEditingEventDate(parseISO(event.dateStr)); setIsEventModalOpen(true); }}
-                                                onDelete={() => deleteEvent(event.id, event.dateStr)}
-                                                onArchive={() => archiveEvent(event.id, event.dateStr)}
+                                                onDelete={() => handleDelete(event.id, event.dateStr)}
+                                                onArchive={() => handleArchive(event.id, event.dateStr)}
                                             />
                                         ))
                                 ) : (
@@ -630,7 +764,7 @@ export default function DashboardPage() {
                                                             {paginatedEvents.map(event => (
                                                                 <div key={`${event.id}-${event.dateStr}`} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors group">
                                                                     <button
-                                                                        onClick={(e) => { e.stopPropagation(); archiveEvent(event.id, event.dateStr); }}
+                                                                        onClick={(e) => { e.stopPropagation(); handleArchive(event.id, event.dateStr); }}
                                                                         className="text-gray-300 hover:text-green-500 transition-colors"
                                                                     >
                                                                         <Circle size={20} />
@@ -733,7 +867,7 @@ export default function DashboardPage() {
                                                                         </div>
                                                                     </div>
                                                                     <button
-                                                                        onClick={() => deleteEvent(event.id, event.dateStr)}
+                                                                        onClick={() => handleDelete(event.id, event.dateStr)}
                                                                         className="text-gray-300 hover:text-red-500 px-2"
                                                                         title="Delete permanently"
                                                                     >
@@ -795,8 +929,8 @@ export default function DashboardPage() {
                                                 key={`${event.id}-${event.dateStr}`}
                                                 event={event}
                                                 onEdit={() => { setEditingEventDate(parseISO(event.dateStr)); setIsEventModalOpen(true); }}
-                                                onDelete={() => deleteEvent(event.id, event.dateStr)}
-                                                onArchive={() => archiveEvent(event.id, event.dateStr)}
+                                                onDelete={() => handleDelete(event.id, event.dateStr)}
+                                                onArchive={() => handleArchive(event.id, event.dateStr)}
                                             />
                                         ))}
                                     </div>
@@ -811,8 +945,8 @@ export default function DashboardPage() {
                                             key={`${event.id}-${event.dateStr}`}
                                             event={event}
                                             onEdit={() => { setEditingEventDate(parseISO(event.dateStr)); setIsEventModalOpen(true); }}
-                                            onDelete={() => deleteEvent(event.id, event.dateStr)}
-                                            onArchive={() => archiveEvent(event.id, event.dateStr)}
+                                            onDelete={() => handleDelete(event.id, event.dateStr)}
+                                            onArchive={() => handleArchive(event.id, event.dateStr)}
                                         />
                                     ))
                                 ) : (
@@ -854,6 +988,71 @@ export default function DashboardPage() {
                 onClose={() => setIsEventModalOpen(false)}
                 date={editingEventDate || new Date()}
             />
+
+            {/* Recurrence Choice Modal */}
+            {recurrenceModal?.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                {recurrenceModal.type === 'delete' ? 'Delete recurring task?' : 'Complete recurring task?'}
+                            </h3>
+                            <p className="text-sm text-gray-500 mb-6 font-medium">
+                                Do you want to {recurrenceModal.type === 'delete' ? 'delete' : 'complete'} only this occurrence or the entire series?
+                            </p>
+
+                            <div className="space-y-3">
+                                <button
+                                    onClick={() => {
+                                        if (recurrenceModal.type === 'archive') {
+                                            archiveEventAction(recurrenceModal.eventId, recurrenceModal.date, 'specific');
+                                        } else {
+                                            deleteEventAction(recurrenceModal.eventId, recurrenceModal.date, 'specific');
+                                        }
+                                        setRecurrenceModal(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all group text-left"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                        <CalendarIconLucide size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-semibold text-gray-900">Only this occurrence</div>
+                                        <div className="text-[10px] text-gray-500">Affects only {format(parseISO(recurrenceModal.date), 'MMMM d')}</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        if (recurrenceModal.type === 'archive') {
+                                            archiveEventAction(recurrenceModal.eventId, recurrenceModal.date, 'all');
+                                        } else {
+                                            deleteEventAction(recurrenceModal.eventId, recurrenceModal.date, 'all');
+                                        }
+                                        setRecurrenceModal(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all group text-left"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
+                                        <RefreshCw size={16} />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-semibold text-gray-900">All occurrences</div>
+                                        <div className="text-[10px] text-gray-500">Affects the entire recurring series</div>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => setRecurrenceModal(null)}
+                                className="mt-6 w-full py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

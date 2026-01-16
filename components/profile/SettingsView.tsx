@@ -2,20 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { User, Lock, Loader2, Save, LogOut, Shield, Mail, Settings } from 'lucide-react';
+import { User, Lock, Loader2, Save, LogOut, Shield, Mail, Settings, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 import { useRouter } from 'next/navigation';
 
 type Tab = 'general' | 'security';
 
 export const SettingsView = () => {
-    const { user, signOut } = useAuthStore();
+    const { user, profile, refreshProfile, signOut } = useAuthStore();
+    const { addToast } = useNotificationStore();
     const router = useRouter();
 
     // UI State
     const [activeTab, setActiveTab] = useState<Tab>('general');
     const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     // Form State
     const [username, setUsername] = useState('');
@@ -25,11 +26,14 @@ export const SettingsView = () => {
 
     // Initialize from auth store
     useEffect(() => {
-        if (user) {
+        if (profile) {
+            setUsername(profile.username || '');
+            setFullName(profile.full_name || ''); // Note: adding full_name to profiles might be good too
+        } else if (user) {
             setUsername(user.user_metadata?.username || '');
             setFullName(user.user_metadata?.full_name || '');
         }
-    }, [user]);
+    }, [user, profile]);
 
     const handleSignOut = async () => {
         setLoading(true);
@@ -46,15 +50,26 @@ export const SettingsView = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        setMessage(null);
 
         try {
-            const updates: any = {
-                data: {
-                    username: username.trim(),
-                    full_name: fullName.trim()
-                }
+            if (!user) {
+                throw new Error("You must be logged in to update settings");
+            }
+
+            const profileUpdate: any = {
+                id: user.id,
+                username: username.trim(),
+                full_name: fullName.trim(),
+                updated_at: new Date().toISOString()
             };
+
+            const promises: Promise<any>[] = [];
+
+            // Only update Auth metadata if on general tab (to keep in sync) 
+            // but we can skip it if it's too slow. Let's keep it but separate it 
+            // from the critical path if we want, or just accept it's slower.
+            // ACTUALLY: Let's skip Auth metadata sync for general info if it's the bottleneck.
+            // For now, let's only do Auth update IF there is a password change.
 
             if (activeTab === 'security' && newPassword) {
                 if (newPassword !== confirmPassword) {
@@ -63,26 +78,46 @@ export const SettingsView = () => {
                 if (newPassword.length < 6) {
                     throw new Error("Password must be at least 6 characters");
                 }
-                updates.password = newPassword;
+                // When changing password, we must use auth.updateUser
+                promises.push(supabase.auth.updateUser({
+                    password: newPassword,
+                    data: {
+                        username: username.trim(),
+                        full_name: fullName.trim()
+                    }
+                }));
             }
 
-            const { error } = await supabase.auth.updateUser(updates);
+            // Always update Profiles table
+            promises.push(
+                supabase.from('profiles')
+                    .upsert(profileUpdate)
+                    .select()
+                    .single() as any
+            );
 
-            if (error) throw error;
+            const results = await Promise.all(promises);
 
-            setMessage({ type: 'success', text: 'Settings saved successfully!' });
+            // Find results
+            const profileResult = results.find(r => r.data && r.data.id === user.id);
+            const authResult = results.find(r => r.data && r.data.user);
+
+            if (authResult?.error) throw authResult.error;
+            if (profileResult?.error) throw profileResult.error;
+
+            // Immediate store update
+            if (profileResult.data) {
+                useAuthStore.getState().setProfile(profileResult.data);
+            }
+
+            addToast('Settings saved successfully!', 'success');
 
             if (activeTab === 'security') {
                 setNewPassword('');
                 setConfirmPassword('');
             }
-
-            setTimeout(() => {
-                setMessage(null);
-            }, 3000);
-
         } catch (err: any) {
-            setMessage({ type: 'error', text: err.message });
+            addToast(err.message || 'Failed to save settings', 'error');
         } finally {
             setLoading(false);
         }
@@ -96,7 +131,7 @@ export const SettingsView = () => {
                 <nav className="space-y-1">
                     <button
                         onClick={() => setActiveTab('general')}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'general'
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'general'
                             ? 'bg-[#e8f0fe] text-[#1a73e8]'
                             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
                     >
@@ -105,7 +140,7 @@ export const SettingsView = () => {
                     </button>
                     <button
                         onClick={() => setActiveTab('security')}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'security'
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'security'
                             ? 'bg-[#e8f0fe] text-[#1a73e8]'
                             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
                     >
@@ -117,7 +152,7 @@ export const SettingsView = () => {
                 <div className="mt-8 pt-8 border-t border-gray-100 px-4">
                     <button
                         onClick={handleSignOut}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                     >
                         <LogOut size={18} />
                         Sign Out
@@ -148,7 +183,7 @@ export const SettingsView = () => {
                                         type="email"
                                         value={user?.email || ''}
                                         disabled
-                                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 font-medium cursor-not-allowed text-sm"
+                                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 font-medium cursor-not-allowed text-sm"
                                     />
                                 </div>
                             </div>
@@ -157,12 +192,14 @@ export const SettingsView = () => {
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Full Name</label>
                                 <div className="relative group">
-                                    <div className="absolute left-3 top-2.5 text-gray-400 font-bold text-xs">Aa</div>
+                                    <div className="absolute left-3 top-2.5 text-gray-400">
+                                        <Users size={18} strokeWidth={1.5} />
+                                    </div>
                                     <input
                                         type="text"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 rounded-lg outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm"
+                                        className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 rounded-xl outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm"
                                         placeholder="John Doe"
                                     />
                                 </div>
@@ -177,7 +214,7 @@ export const SettingsView = () => {
                                         type="text"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 rounded-lg outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm"
+                                        className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 rounded-xl outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm"
                                         placeholder="username"
                                         minLength={3}
                                     />
@@ -188,7 +225,7 @@ export const SettingsView = () => {
 
                     {activeTab === 'security' && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 text-sm text-blue-800">
+                            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-sm text-blue-800">
                                 To change your password, enter it below.
                             </div>
 
@@ -201,7 +238,7 @@ export const SettingsView = () => {
                                             type="password"
                                             value={newPassword}
                                             onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 rounded-lg outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm"
+                                            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:border-[#1a73e8] focus:ring-2 focus:ring-[#1a73e8]/10 rounded-xl outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm"
                                             placeholder="••••••••"
                                             minLength={6}
                                         />
@@ -217,7 +254,7 @@ export const SettingsView = () => {
                                                 type="password"
                                                 value={confirmPassword}
                                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                                className={`w-full pl-10 pr-4 py-2 bg-white border ${confirmPassword && confirmPassword !== newPassword ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#1a73e8]'} focus:ring-2 rounded-lg outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm`}
+                                                className={`w-full pl-10 pr-4 py-2 bg-white border ${confirmPassword && confirmPassword !== newPassword ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#1a73e8]'} focus:ring-2 rounded-xl outline-none transition-all font-medium text-gray-900 placeholder:text-gray-400 text-sm`}
                                                 placeholder="••••••••"
                                             />
                                         </div>
@@ -227,22 +264,17 @@ export const SettingsView = () => {
                         </div>
                     )}
 
-                    {message && (
-                        <div className={`p-4 rounded-lg ${message.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'} text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-1`}>
-                            {message.text}
-                        </div>
-                    )}
 
                     <div className="pt-2 flex justify-start">
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2.5 bg-[#1a73e8] hover:bg-[#1557b0] active:scale-[0.98] text-white rounded-lg font-bold shadow-sm transition-all flex items-center gap-2 text-sm"
+                            className="px-6 py-2.5 bg-[#1a73e8] hover:bg-[#1557b0] active:scale-[0.98] text-white rounded-xl font-bold shadow-sm transition-all flex items-center gap-2 text-sm"
                         >
                             {loading ? <Loader2 className="animate-spin" size={16} /> : (
                                 <>
                                     <Save size={16} />
-                                    Save Changes
+                                    Save
                                 </>
                             )}
                         </button>

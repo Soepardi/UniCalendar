@@ -52,7 +52,7 @@ export const DayView: React.FC<DayViewProps> = ({ date, days, events, onEventCli
     const hours = Array.from({ length: 24 }, (_, i) => i);
 
     return (
-        <div className="flex flex-col h-full bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="flex flex-col h-full bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
             {/* Header / Allday area could go here */}
 
             {/* Scrollable Grid */}

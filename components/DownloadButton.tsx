@@ -6,29 +6,20 @@ import { useLanguageStore } from '@/store/useLanguageStore';
 import { useCalendarStore } from '@/store/useCalendarStore';
 import { useEventStore } from '@/store/useEventStore';
 import { useHolidayStore } from '@/store/useHolidayStore';
-import { Upload, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 
 export const DownloadButton = () => {
     const { translations, getLocale } = useLanguageStore();
     const { currentDate, selectedCalendars, showNativeScript } = useCalendarStore();
     const { fetchEvents, events } = useEventStore();
+    const { user } = useAuthStore();
+    const { addToast } = useNotificationStore();
     const [loading, setLoading] = useState(false);
     const [showOptions, setShowOptions] = useState(false);
-    const [customLogo, setCustomLogo] = useState<string | null>(null);
     const [includeEvents, setIncludeEvents] = useState(false);
-
-    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setCustomLogo(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
 
     const handleDownload = async (mode: 'month' | 'year') => {
         setLoading(true);
@@ -62,7 +53,7 @@ export const DownloadButton = () => {
                     selectedCalendars={selectedCalendars}
                     translations={translations}
                     locale={getLocale()}
-                    logoUrl={customLogo || window.location.origin + '/logo.png'}
+                    logoUrl={window.location.origin + '/logo.png'}
                     showNativeScript={showNativeScript}
                     events={includeEvents ? events : undefined}
                 />
@@ -83,7 +74,7 @@ export const DownloadButton = () => {
 
         } catch (error) {
             console.error('Download failed', error);
-            alert('Failed to generate PDF. Please try again.');
+            addToast('Failed to generate PDF. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
@@ -94,7 +85,7 @@ export const DownloadButton = () => {
             <button
                 onClick={() => setShowOptions(!showOptions)}
                 disabled={loading}
-                className={`flex items-center gap-2 md:gap-3 px-4 py-2 md:px-6 md:py-3 rounded-full font-medium text-sm transition-all duration-200 active:scale-95 border ${loading
+                className={`flex items-center gap-2 md:gap-3 px-4 md:px-6 h-11 rounded-xl font-medium text-sm transition-all duration-200 active:scale-95 border ${loading
                     ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                     : 'bg-[#1a73e8] text-white border-transparent hover:bg-[#185abc] hover:shadow-md'
                     }`}
@@ -149,26 +140,11 @@ export const DownloadButton = () => {
                         </button>
 
                         {/* Customization Options - Only for Logged In Users */}
-                        {useAuthStore.getState().user && (
+                        {user && (
                             <>
                                 <div className="h-px bg-gray-100 my-1 mx-3"></div>
 
                                 <div className="px-3 py-2 space-y-3">
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${customLogo ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-[#1a73e8]'}`}>
-                                            <Upload size={14} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="text-xs font-semibold text-gray-900">
-                                                {customLogo ? 'Logo Uploaded' : 'Upload Logo'}
-                                            </div>
-                                            <div className="text-[10px] text-gray-500">
-                                                {customLogo ? 'Click to change' : 'Replace default logo'}
-                                            </div>
-                                        </div>
-                                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                                    </label>
-
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -180,7 +156,7 @@ export const DownloadButton = () => {
                                             <CalendarIcon size={14} />
                                         </div>
                                         <div>
-                                            <div className="text-xs font-semibold text-gray-900">Include Agenda</div>
+                                            <div className="text-xs font-semibold text-gray-900">Include Agenda & Task</div>
                                             <div className="text-[10px] text-gray-500">
                                                 {includeEvents ? 'Agenda will be shown' : 'Show my schedule'}
                                             </div>
@@ -192,6 +168,7 @@ export const DownloadButton = () => {
                                 </div>
                             </>
                         )}
+
                     </div>
                 </div>
             )}

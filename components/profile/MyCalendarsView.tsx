@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEventStore } from '@/store/useEventStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 import { useHolidayStore } from '@/store/useHolidayStore';
 import { AgendaModal } from '../events/AgendaModal';
 import { supabase } from '@/lib/supabase';
@@ -14,7 +15,7 @@ import dynamic from 'next/dynamic';
 const MyCalendarPrintButton = dynamic(() => import('./MyCalendarPrintButton').then(mod => mod.MyCalendarPrintButton), {
     ssr: false,
     loading: () => (
-        <button className="flex items-center gap-2 px-3 py-2 bg-[#1a73e8] text-white rounded-lg font-medium shadow-sm text-sm opacity-50 cursor-not-allowed">
+        <button className="flex items-center gap-2 px-3 py-2 bg-[#1a73e8] text-white rounded-xl font-medium shadow-sm text-sm opacity-50 cursor-not-allowed">
             <Loader2 size={16} className="animate-spin" /> <span className="hidden sm:inline">Loading...</span>
         </button>
     )
@@ -32,6 +33,7 @@ interface SavedCalendar {
 export const MyCalendarsView = () => {
     const { user } = useAuthStore();
     const { events, fetchEvents } = useEventStore();
+    const { addToast, confirm } = useNotificationStore();
     const { holidays, fetchHolidays } = useHolidayStore();
 
     // UI State
@@ -107,15 +109,21 @@ export const MyCalendarsView = () => {
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm('Are you sure you want to delete this calendar?')) return;
-
-        const { error } = await supabase.from('saved_calendars').delete().eq('id', id);
-        if (error) {
-            console.error('Error deleting calendar:', error);
-            alert('Failed to delete calendar');
-        } else {
-            fetchSavedCalendars();
-        }
+        confirm({
+            title: 'Delete Calendar',
+            message: 'Are you sure you want to delete this calendar? This action cannot be undone.',
+            confirmText: 'Delete',
+            type: 'danger',
+            onConfirm: async () => {
+                const { error } = await supabase.from('saved_calendars').delete().eq('id', id);
+                if (error) {
+                    addToast('Failed to delete calendar', 'error');
+                } else {
+                    addToast('Calendar deleted', 'success');
+                    fetchSavedCalendars();
+                }
+            }
+        });
     };
 
     const handleSaveString = async () => {
@@ -144,10 +152,9 @@ export const MyCalendarsView = () => {
         }
 
         if (error) {
-            console.error('Error saving calendar:', error);
-            alert('Failed to save calendar');
+            addToast('Failed to save calendar', 'error');
         } else {
-            alert('Calendar saved successfully!');
+            addToast('Calendar saved successfully!', 'success');
             fetchSavedCalendars();
             setMode('list');
         }
@@ -164,7 +171,7 @@ export const MyCalendarsView = () => {
                 <div className="flex justify-end mb-6">
                     <button
                         onClick={handleCreateNew}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-lg font-medium hover:bg-[#1557b0] transition-all shadow-sm active:scale-95 text-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#1a73e8] text-white rounded-xl font-medium hover:bg-[#1557b0] transition-all shadow-sm active:scale-95 text-sm"
                     >
                         <Plus size={18} />
                         Create New Calendar
@@ -201,13 +208,13 @@ export const MyCalendarsView = () => {
                                     <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
                                             onClick={(e) => handleDelete(cal.id, e)}
-                                            className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
+                                            className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-xl transition-colors"
                                         >
                                             <Trash2 size={18} />
                                         </button>
                                     </div>
                                     <div className="flex items-start gap-4">
-                                        <div className="w-12 h-12 bg-blue-50 text-[#1a73e8] rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-xl">
+                                        <div className="w-12 h-12 bg-blue-50 text-[#1a73e8] rounded-2xl flex items-center justify-center flex-shrink-0 font-bold text-xl">
                                             {cal.year}
                                         </div>
                                         <div>
@@ -264,7 +271,7 @@ export const MyCalendarsView = () => {
 
                 <div className="flex items-center gap-3 md:gap-6 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
                     {/* Settings Group */}
-                    <div className="flex items-center gap-4 text-xs font-medium text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 whitespace-nowrap">
+                    <div className="flex items-center gap-4 text-xs font-medium text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-red-500"></span>
                             <span className="text-gray-500">Off:</span>
@@ -292,7 +299,7 @@ export const MyCalendarsView = () => {
 
                     {/* Action Group */}
                     <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5 shadow-sm">
+                        <div className="flex items-center bg-white border border-gray-200 rounded-xl p-0.5 shadow-sm">
                             <button onClick={() => setViewYear(y => y - 1)} className="p-1.5 hover:bg-gray-50 rounded-md transition-all text-gray-500 hover:text-gray-900"><ChevronLeft size={14} /></button>
                             <span className="font-bold text-sm px-2 min-w-[3rem] text-center tabular-nums">{viewYear}</span>
                             <button onClick={() => setViewYear(y => y + 1)} className="p-1.5 hover:bg-gray-50 rounded-md transition-all text-gray-500 hover:text-gray-900"><ChevronRight size={14} /></button>
@@ -300,7 +307,7 @@ export const MyCalendarsView = () => {
 
                         <div className="h-6 w-px bg-gray-200 mx-1"></div>
 
-                        <button onClick={handleSaveString} className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg font-medium transition-colors text-sm border border-transparent hover:border-gray-200">
+                        <button onClick={handleSaveString} className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl font-medium transition-colors text-sm border border-transparent hover:border-gray-200">
                             <Save size={16} /> <span className="hidden sm:inline">Save</span>
                         </button>
                         <MyCalendarPrintButton
@@ -322,7 +329,7 @@ export const MyCalendarsView = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 print:grid-cols-3 print:gap-4">
                     {months.map((monthDate) => (
                         <div key={monthDate.toISOString()} className="break-inside-avoid">
-                            <div className="border border-gray-200 rounded-xl p-4 print:border-gray-200 hover:border-[#1a73e8]/30 transition-colors">
+                            <div className="border border-gray-200 rounded-2xl p-4 print:border-gray-200 hover:border-[#1a73e8]/30 transition-colors">
                                 <h3 className="font-bold text-lg mb-4 text-[#1a73e8]">{format(monthDate, 'MMMM')}</h3>
                                 <SimpleMonthGrid
                                     date={monthDate}
@@ -394,7 +401,7 @@ function SimpleMonthGrid({
                         key={day.toISOString()}
                         onClick={() => onDayClick(day)}
                         className={`
-                            aspect-square flex flex-col items-center justify-start py-1 rounded-md cursor-pointer transition-colors relative group
+                            aspect-square flex flex-col items-center justify-start py-1 rounded-xl cursor-pointer transition-colors relative group
                             ${!isCurrentMonth ? 'opacity-30' : ''}
                             ${(isWeeklyHoliday || dbHolidayName || hasWork) ? 'bg-red-50 text-red-700 hover:bg-red-100' :
                                 isSpecialDay ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' :

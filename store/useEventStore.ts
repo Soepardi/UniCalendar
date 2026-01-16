@@ -14,6 +14,11 @@ export interface CalendarEvent {
     user_id: string;
     recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
     recurrence_days?: number[]; // 0=Sun, 1=Mon, etc.
+    completed_dates?: string[]; // YYYY-MM-DD
+    excluded_dates?: string[]; // YYYY-MM-DD
+    team_id?: string | null;
+    is_public?: boolean;
+    share_slug?: string | null;
 }
 
 interface EventState {
@@ -23,8 +28,8 @@ interface EventState {
     fetchEvents: (monthStart: Date, monthEnd: Date) => Promise<void>;
     addEvent: (event: Omit<CalendarEvent, 'id' | 'user_id'>) => Promise<void>;
     updateEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<void>;
-    deleteEvent: (id: string, date: string) => Promise<void>;
-    archiveEvent: (id: string, date: string) => Promise<void>;
+    deleteEvent: (id: string, date: string, choice?: 'all' | 'specific') => Promise<void>;
+    archiveEvent: (id: string, date: string, choice?: 'all' | 'specific') => Promise<void>;
 }
 
 export const useEventStore = create<EventState>((set, get) => ({
@@ -85,18 +90,50 @@ export const useEventStore = create<EventState>((set, get) => ({
             }
 
             // 2. Expand Recurring Events
-            // We iterate from "max(startDate, fetchStart)" to "fetchEnd"
-            // Actually, we should iterate from startDate until we hit fetchEnd
+            // Optimization: Jump to start of view range if the event started earlier
             let currentCursor = startDate;
 
-            // Optimization: Jump to start of view if needed? 
-            // For monthly/yearly, iteration is cheap. For daily, jumping is better.
-            // Let's just iterate from startDate for safety/correctness for now.
+            if (isBefore(startDate, start)) {
+                switch (evt.recurrence) {
+                    case 'daily':
+                        currentCursor = startOfDay(start);
+                        break;
+                    case 'weekly':
+                        // Jump to the same day of week at or after 'start'
+                        const daysDiff = Math.ceil(Math.abs(start.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                        const weeksToJump = Math.floor(daysDiff / 7);
+                        currentCursor = addWeeks(startDate, weeksToJump);
+                        // Ensure we are at or after 'start'
+                        while (isBefore(currentCursor, start) && !isSameDay(currentCursor, start)) {
+                            currentCursor = addWeeks(currentCursor, 1);
+                        }
+                        break;
+                    case 'monthly':
+                        // Jump to the same day of month in the target month
+                        const monthsDiff = (start.getFullYear() - startDate.getFullYear()) * 12 + (start.getMonth() - startDate.getMonth());
+                        currentCursor = addMonths(startDate, Math.max(0, monthsDiff));
+                        // Ensure we didn't undershoot
+                        while (isBefore(currentCursor, start) && !isSameDay(currentCursor, start)) {
+                            currentCursor = addMonths(currentCursor, 1);
+                        }
+                        break;
+                    case 'yearly':
+                        const yearsDiff = start.getFullYear() - startDate.getFullYear();
+                        currentCursor = addYears(startDate, Math.max(0, yearsDiff));
+                        while (isBefore(currentCursor, start) && !isSameDay(currentCursor, start)) {
+                            currentCursor = addYears(currentCursor, 1);
+                        }
+                        break;
+                    case 'custom':
+                        currentCursor = startOfDay(start);
+                        break;
+                }
+            }
 
-            const limitLoop = 365 * 5; // Safety break
+            const limitLoop = 500; // Reduced safety break since we jump now
             let count = 0;
 
-            while (isBefore(currentCursor, end) || isSameDay(currentCursor, end)) { // Allow up to end
+            while (isBefore(currentCursor, end) || isSameDay(currentCursor, end)) {
                 count++;
                 if (count > limitLoop) break;
 
@@ -137,13 +174,30 @@ export const useEventStore = create<EventState>((set, get) => ({
                 //  Actually, for recurring events, we should generate ALL instances as "virtual" copies 
                 //  so they carry the correct 'date' property for the UI).
                 if (match && (isAfter(currentCursor, start) || cursorStr === startStr) && (isBefore(currentCursor, end) || cursorStr === endStr)) {
-                    if (!eventsMap[cursorStr]) eventsMap[cursorStr] = [];
+                    // Check exclusion
+                    if (evt.excluded_dates?.includes(cursorStr)) {
+                        // Skip this instance
+                    } else {
+                        if (!eventsMap[cursorStr]) eventsMap[cursorStr] = [];
 
-                    // Create Virtual Instance
-                    // We keep original ID but modify date.
-                    // Note: Editing a virtual instance usually splits it. For now, UI only supports "Edit Master".
-                    const instance = { ...evt, date: cursorStr, isVirtual: true, originalDate: evt.date };
-                    eventsMap[cursorStr].push(instance);
+                        // Check completion override
+                        let currentStatus = evt.status;
+                        if (evt.completed_dates?.includes(cursorStr)) {
+                            currentStatus = 'completed';
+                        }
+
+                        // Create Virtual Instance
+                        // We keep original ID but modify date.
+                        // Note: Editing a virtual instance usually splits it. For now, UI only supports "Edit Master".
+                        const instance = {
+                            ...evt,
+                            date: cursorStr,
+                            status: currentStatus,
+                            isVirtual: true,
+                            originalDate: evt.date
+                        };
+                        eventsMap[cursorStr].push(instance);
+                    }
                 }
 
                 // Increment Cursor efficiently
@@ -170,6 +224,10 @@ export const useEventStore = create<EventState>((set, get) => ({
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        if (newEvent.is_public && !newEvent.share_slug) {
+            newEvent.share_slug = Math.random().toString(36).substring(2, 10);
+        }
+
         const { data, error } = await supabase
             .from('events')
             .insert([{ ...newEvent, user_id: user.id }])
@@ -192,6 +250,10 @@ export const useEventStore = create<EventState>((set, get) => ({
     },
 
     updateEvent: async (id, updates) => {
+        if (updates.is_public && !updates.share_slug) {
+            updates.share_slug = Math.random().toString(36).substring(2, 10);
+        }
+
         const { error } = await supabase
             .from('events')
             .update(updates)
@@ -208,15 +270,26 @@ export const useEventStore = create<EventState>((set, get) => ({
         store.fetchEvents(addMonths(today, -1), addMonths(today, 6));
     },
 
-    deleteEvent: async (id, date) => {
-        const { error } = await supabase
-            .from('events')
-            .delete()
-            .eq('id', id); // Deletes the master event, so all recurrences vanish
+    deleteEvent: async (id, date, choice = 'all') => {
+        if (choice === 'specific') {
+            // Get current event to update excluded_dates
+            const { data: evt } = await supabase.from('events').select('excluded_dates').eq('id', id).single();
+            if (evt) {
+                const excluded = evt.excluded_dates || [];
+                if (!excluded.includes(date)) {
+                    await supabase.from('events').update({ excluded_dates: [...excluded, date] }).eq('id', id);
+                }
+            }
+        } else {
+            const { error } = await supabase
+                .from('events')
+                .delete()
+                .eq('id', id);
 
-        if (error) {
-            console.error('Error deleting event:', error);
-            return;
+            if (error) {
+                console.error('Error deleting event:', error);
+                return;
+            }
         }
 
         // Trigger fetch
@@ -225,15 +298,26 @@ export const useEventStore = create<EventState>((set, get) => ({
         store.fetchEvents(addMonths(today, -1), addMonths(today, 6));
     },
 
-    archiveEvent: async (id, date) => {
-        const { error } = await supabase
-            .from('events')
-            .update({ status: 'archived' })
-            .eq('id', id);
+    archiveEvent: async (id, date, choice = 'all') => {
+        if (choice === 'specific') {
+            // Get current event to update completed_dates
+            const { data: evt } = await supabase.from('events').select('completed_dates').eq('id', id).single();
+            if (evt) {
+                const completed = evt.completed_dates || [];
+                if (!completed.includes(date)) {
+                    await supabase.from('events').update({ completed_dates: [...completed, date] }).eq('id', id);
+                }
+            }
+        } else {
+            const { error } = await supabase
+                .from('events')
+                .update({ status: 'archived' })
+                .eq('id', id);
 
-        if (error) {
-            console.error('Error archiving event:', error);
-            return;
+            if (error) {
+                console.error('Error archiving event:', error);
+                return;
+            }
         }
 
         // Trigger fetch

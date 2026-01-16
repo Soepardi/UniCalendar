@@ -100,7 +100,7 @@ const MonthView = ({ headless = false }: { headless?: boolean }) => {
     }, [locale, primaryCalendarId, showNativeScript]);
 
     return (
-        <div className={`bg-white rounded-3xl p-4 md:p-8 shadow-sm ${headless ? 'shadow-none !p-0' : ''}`}>
+        <div className={`bg-white rounded-2xl p-4 md:p-8 shadow-sm ${headless ? 'shadow-none !p-0' : ''}`}>
             {!headless && (
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4 md:mb-6 px-1 md:px-2 pb-4 md:pb-6 border-b-2 border-[#1a73e8]">
                     <h2 className="w-full md:w-auto flex flex-col md:flex-row md:items-baseline gap-1 md:gap-3 text-[#202124] tracking-tight text-center md:text-left">
@@ -129,23 +129,23 @@ const MonthView = ({ headless = false }: { headless?: boolean }) => {
                     </h2>
                     {/* Navigation */}
                     {/* Navigation */}
-                    <div className="flex items-center bg-gray-100 rounded-full p-1 gap-1 shrink-0 print:hidden shadow-sm border border-gray-200">
+                    <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-1 shrink-0 print:hidden shadow-sm border border-gray-200">
                         <button
                             onClick={() => setDate(addMonths(currentDate, -1))}
-                            className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-full transition-all hover:shadow-sm text-gray-500"
+                            className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-xl transition-all hover:shadow-sm text-gray-500"
                             title="Previous Month"
                         >
                             <ChevronLeft size={18} strokeWidth={2.5} />
                         </button>
                         <button
                             onClick={() => setDate(new Date())}
-                            className="px-4 py-1.5 hover:bg-white hover:text-[#1a73e8] rounded-full text-sm font-bold text-gray-700 transition-all hover:shadow-sm"
+                            className="px-4 py-1.5 hover:bg-white hover:text-[#1a73e8] rounded-xl text-sm font-bold text-gray-700 transition-all hover:shadow-sm"
                         >
                             Today
                         </button>
                         <button
                             onClick={() => setDate(addMonths(currentDate, 1))}
-                            className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-full transition-all hover:shadow-sm text-gray-500"
+                            className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-xl transition-all hover:shadow-sm text-gray-500"
                             title="Next Month"
                         >
                             <ChevronRight size={18} strokeWidth={2.5} />
@@ -309,23 +309,23 @@ export const CalendarGrid = ({ headless = false }: { headless?: boolean }) => {
                     </h3>
                 </div>
                 {/* Navigation Buttons */}
-                <div className="flex items-center bg-gray-100 rounded-full p-1 gap-1 shrink-0 print:hidden shadow-sm border border-gray-200">
+                <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-1 shrink-0 print:hidden shadow-sm border border-gray-200">
                     <button
                         onClick={() => setDate(addDays(currentDate, -1))}
-                        className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-full transition-all hover:shadow-sm text-gray-500"
+                        className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-xl transition-all hover:shadow-sm text-gray-500"
                         title="Previous Day"
                     >
                         <ChevronLeft size={18} strokeWidth={2.5} />
                     </button>
                     <button
                         onClick={() => setDate(new Date())}
-                        className="px-4 py-1.5 hover:bg-white hover:text-[#1a73e8] rounded-full text-sm font-bold text-gray-700 transition-all hover:shadow-sm"
+                        className="px-4 py-1.5 hover:bg-white hover:text-[#1a73e8] rounded-xl text-sm font-bold text-gray-700 transition-all hover:shadow-sm"
                     >
                         Today
                     </button>
                     <button
                         onClick={() => setDate(addDays(currentDate, 1))}
-                        className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-full transition-all hover:shadow-sm text-gray-500"
+                        className="p-2 hover:bg-white hover:text-[#1a73e8] rounded-xl transition-all hover:shadow-sm text-gray-500"
                         title="Next Day"
                     >
                         <ChevronRight size={18} strokeWidth={2.5} />
@@ -348,7 +348,7 @@ export const CalendarGrid = ({ headless = false }: { headless?: boolean }) => {
                     const displayDate = (showNativeScript && data.fullDateNative) ? data.fullDateNative : data.fullDate;
 
                     return (
-                        <div key={calId} className={`rounded-3xl p-4 md:p-8 flex flex-col border transition-all duration-300 hover:shadow-md ${data.holiday ? 'bg-[#fef2f2] border-[#fbd7d4]' : 'bg-white border-[#dadce0]'}`}>
+                        <div key={calId} className={`rounded-2xl p-4 md:p-8 flex flex-col border transition-all duration-300 hover:shadow-md ${data.holiday ? 'bg-[#fef2f2] border-[#fbd7d4]' : 'bg-white border-[#dadce0]'}`}>
                             {/* Simplified Card Content for Restoration */}
                             <h3 className="font-bold">{metaName}</h3>
                             <div className="text-4xl my-2">{data.day}</div>

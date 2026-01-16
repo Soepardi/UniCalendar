@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useEventStore, CalendarEvent } from '@/store/useEventStore';
-import { Calendar as CalendarIcon, Clock, AlignLeft, X, Trash2, Save, Plus, ChevronDown } from 'lucide-react';
+import { useTeamStore } from '@/store/useTeamStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
+import { Calendar as CalendarIcon, Clock, AlignLeft, X, Trash2, Save, Plus, ChevronDown, Users, Globe, Lock, Share2, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface EventModalProps {
@@ -13,6 +15,7 @@ interface EventModalProps {
 
 export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
     const { events, addEvent, updateEvent, deleteEvent } = useEventStore();
+    const { addToast, confirm } = useNotificationStore();
     const dateKey = format(date, 'yyyy-MM-dd');
     const dayEvents = events[dateKey] || [];
 
@@ -22,7 +25,13 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
     const [time, setTime] = useState('');
     const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'>('none');
     const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]); // 0=Sun
+    const [teamId, setTeamId] = useState<string | null>(null);
+    const [isPublic, setIsPublic] = useState(false);
+    const [shareSlug, setShareSlug] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
+
+    const { teams, currentTeamId } = useTeamStore();
 
     // Reset form when modal opens or date changes
     useEffect(() => {
@@ -38,7 +47,12 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
         } else {
             setTime('');
         }
-    }, [isOpen, date]);
+
+        setTeamId(currentTeamId);
+        setIsPublic(false);
+        setShareSlug(null);
+        setCopied(false);
+    }, [isOpen, date, currentTeamId]);
 
     if (!isOpen) return null;
 
@@ -47,6 +61,7 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
 
         if (isEditing) {
             await updateEvent(isEditing, { title, description, time, recurrence: recurrence as any, recurrence_days: recurrenceDays });
+            addToast('Event updated', 'success');
         } else {
             await addEvent({
                 title,
@@ -54,8 +69,11 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                 date: dateKey,
                 time,
                 recurrence: recurrence as any,
-                recurrence_days: recurrenceDays
+                recurrence_days: recurrenceDays,
+                team_id: teamId,
+                is_public: isPublic
             });
+            addToast('Event created', 'success');
         }
         setIsEditing(null);
         setTitle('');
@@ -73,12 +91,22 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
         setTime(evt.time || '');
         setRecurrence(evt.recurrence || 'none');
         setRecurrenceDays(evt.recurrence_days || []);
+        setTeamId(evt.team_id || null);
+        setIsPublic(evt.is_public || false);
+        setShareSlug(evt.share_slug || null);
     };
 
-    const handleDelete = async (id: string) => {
-        if (confirm('Are you sure you want to delete this event?')) {
-            await deleteEvent(id, dateKey);
-        }
+    const handleDelete = (id: string) => {
+        confirm({
+            title: 'Delete Event',
+            message: 'Are you sure you want to delete this event? This action cannot be undone.',
+            confirmText: 'Delete',
+            type: 'danger',
+            onConfirm: async () => {
+                await deleteEvent(id, dateKey);
+                addToast('Event deleted', 'success');
+            }
+        });
     };
 
     // Helper for sliders
@@ -142,6 +170,18 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                                             {evt.time && (
                                                 <span className="text-xs font-bold text-[#1a73e8] bg-[#e8f0fe] px-1.5 py-0.5 rounded">
                                                     {evt.time}
+                                                </span>
+                                            )}
+                                            {evt.team_id && (
+                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                    <Users size={10} />
+                                                    {teams.find(t => t.id === evt.team_id)?.name || 'Team'}
+                                                </span>
+                                            )}
+                                            {evt.is_public && (
+                                                <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                    <Globe size={10} />
+                                                    Public
                                                 </span>
                                             )}
                                             {evt.description && <p className="text-sm text-gray-500 leading-relaxed max-w-[200px] truncate">{evt.description}</p>}
@@ -327,6 +367,58 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 ring-[#1a73e8]/20 focus:border-[#1a73e8] outline-none transition-all resize-none font-medium text-sm"
                             />
                         </div>
+
+                        {/* Team & Visibility Selection */}
+                        <div className="flex gap-3">
+                            <div className="flex-1 space-y-1.5">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Assign to</label>
+                                <div className="relative">
+                                    <select
+                                        value={teamId || 'personal'}
+                                        onChange={(e) => setTeamId(e.target.value === 'personal' ? null : e.target.value)}
+                                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 ring-[#1a73e8]/20 focus:border-[#1a73e8] outline-none transition-all font-medium appearance-none text-sm"
+                                    >
+                                        <option value="personal">Personal Schedule</option>
+                                        {teams.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                                </div>
+                            </div>
+                            <div className="w-32 space-y-1.5">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Visibility</label>
+                                <button
+                                    onClick={() => setIsPublic(!isPublic)}
+                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${isPublic ? 'bg-green-50 border-green-200 text-green-600' : 'bg-white border-gray-200 text-gray-600'}`}
+                                >
+                                    {isPublic ? <Globe size={14} /> : <Lock size={14} />}
+                                    {isPublic ? 'Public' : 'Private'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {isPublic && isEditing && shareSlug && (
+                            <div className="mt-2 p-4 bg-green-50 border border-green-100 rounded-2xl animate-in slide-in-from-top-2">
+                                <label className="text-[10px] font-black text-green-600 uppercase tracking-widest block mb-2">Public Share Link</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1 bg-white border border-green-200 rounded-xl px-3 py-2 text-xs font-mono text-gray-500 truncate">
+                                        {typeof window !== 'undefined' ? `${window.location.origin}/share/${shareSlug}` : ''}
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            const url = `${window.location.origin}/share/${shareSlug}`;
+                                            navigator.clipboard.writeText(url);
+                                            setCopied(true);
+                                            setTimeout(() => setCopied(false), 2000);
+                                        }}
+                                        className={`p-2 rounded-xl transition-all ${copied ? 'bg-green-500 text-white' : 'bg-white border border-green-200 text-green-600 hover:bg-green-50'}`}
+                                    >
+                                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex gap-2">
                             <button
                                 onClick={handleSave}

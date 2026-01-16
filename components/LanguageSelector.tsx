@@ -40,7 +40,7 @@ export const LanguageSelector = () => {
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-white border border-[#dadce0] hover:bg-[#f8f9fa] transition-all text-sm font-medium text-[#5f6368] shadow-sm"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#dadce0] hover:bg-[#f8f9fa] transition-all text-sm font-medium text-[#5f6368] shadow-sm"
             >
                 <span>{currentLang.flag}</span>
                 <span className="hidden sm:inline">{currentLang.label}</span>
