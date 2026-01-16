@@ -129,10 +129,10 @@ export default function Home() {
                 <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="p-2.5 rounded-xl bg-white border border-gray-200/50 text-[#5f6368] hover:text-[#1a73e8] hover:border-[#1a73e8]/20 hover:shadow-md transition-all active:scale-95">
                   <Twitter size={18} />
                 </a>
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="p-2.5 rounded-xl bg-white border border-gray-200/50 text-[#5f6368] hover:text-[#e4405f] hover:border-[#e4405f]/20 hover:shadow-md transition-all active:scale-95">
+                <a href="https://www.instagram.com/soe_akhiyat/" target="_blank" rel="noopener noreferrer" className="p-2.5 rounded-xl bg-white border border-gray-200/50 text-[#5f6368] hover:text-[#e4405f] hover:border-[#e4405f]/20 hover:shadow-md transition-all active:scale-95">
                   <Instagram size={18} />
                 </a>
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="p-2.5 rounded-xl bg-white border border-gray-200/50 text-[#5f6368] hover:text-[#0a66c2] hover:border-[#0a66c2]/20 hover:shadow-md transition-all active:scale-95">
+                <a href="https://www.linkedin.com/in/supardi-akhiyat-8b4582ab/" target="_blank" rel="noopener noreferrer" className="p-2.5 rounded-xl bg-white border border-gray-200/50 text-[#5f6368] hover:text-[#0a66c2] hover:border-[#0a66c2]/20 hover:shadow-md transition-all active:scale-95">
                   <Linkedin size={18} />
                 </a>
               </div>
