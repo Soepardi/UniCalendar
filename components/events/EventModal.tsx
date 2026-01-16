@@ -403,11 +403,11 @@ export const EventModal = ({ isOpen, onClose, date }: EventModalProps) => {
                                 <label className="text-[10px] font-black text-green-600 uppercase tracking-widest block mb-2">Public Share Link</label>
                                 <div className="flex items-center gap-2">
                                     <div className="flex-1 bg-white border border-green-200 rounded-xl px-3 py-2 text-xs font-mono text-gray-500 truncate">
-                                        {typeof window !== 'undefined' ? `${window.location.origin}/share/${shareSlug}` : ''}
+                                        {typeof window !== 'undefined' ? `${window.location.origin}/share?s=${shareSlug}` : ''}
                                     </div>
                                     <button
                                         onClick={() => {
-                                            const url = `${window.location.origin}/share/${shareSlug}`;
+                                            const url = `${window.location.origin}/share?s=${shareSlug}`;
                                             navigator.clipboard.writeText(url);
                                             setCopied(true);
                                             setTimeout(() => setCopied(false), 2000);

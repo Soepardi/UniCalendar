@@ -1,17 +1,27 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { Calendar, Clock, Globe, Loader2, AlertCircle } from 'lucide-react';
 
-export default function PublicSharePage({ params }: { params: { slug: string } }) {
+function SharedEventContent() {
+    const searchParams = useSearchParams();
+    const slug = searchParams.get('s');
+
     const [event, setEvent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchSharedEvent() {
+            if (!slug) {
+                setError('No event specified.');
+                setLoading(false);
+                return;
+            }
+
             setLoading(true);
             const { data, error } = await supabase
                 .from('events')
@@ -19,7 +29,7 @@ export default function PublicSharePage({ params }: { params: { slug: string } }
                     *,
                     user_profile:profiles(*)
                 `)
-                .eq('share_slug', params.slug)
+                .eq('share_slug', slug)
                 .eq('is_public', true)
                 .single();
 
@@ -32,7 +42,7 @@ export default function PublicSharePage({ params }: { params: { slug: string } }
         }
 
         fetchSharedEvent();
-    }, [params.slug]);
+    }, [slug]);
 
     if (loading) {
         return (
@@ -137,5 +147,17 @@ export default function PublicSharePage({ params }: { params: { slug: string } }
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function PublicSharePage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+            </div>
+        }>
+            <SharedEventContent />
+        </Suspense>
     );
 }
