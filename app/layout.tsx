@@ -15,6 +15,9 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "UniCal World Calendar",
   description: "Calendar from Soe With love",
+  verification: {
+    google: "QM-B56IC60TwQO0DIW5uUXXUfGwHZ89bKuZ2j6q5nIg",
+  },
 };
 
 import { MainLayout } from "@/components/layout/MainLayout";
