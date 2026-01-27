@@ -157,7 +157,10 @@ export default function DashboardPage() {
                 if (currentTeamId) {
                     return event.team_id === currentTeamId;
                 } else {
-                    return !event.team_id;
+                    // Personal/All View: Show (No Team) OR (My Events from any Team) OR (Public events shared with me?)
+                    // User Request: "show all of that user agenda wether it shared with other user and not"
+                    // Interpretation: Show any event that belongs to me, plus standard personal events.
+                    return !event.team_id || (user && event.user_id === user.id);
                 }
             })
             .sort((a, b) => new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime()); // Fixed sort b.dateStr

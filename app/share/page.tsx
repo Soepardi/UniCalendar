@@ -23,20 +23,16 @@ function SharedEventContent() {
             }
 
             setLoading(true);
-            const { data, error } = await supabase
-                .from('events')
-                .select(`
-                    *,
-                    user_profile:profiles(*)
-                `)
-                .eq('share_slug', slug)
-                .eq('is_public', true)
-                .single();
 
-            if (error || !data) {
+            // Use Secure RPC to fetch shared event (Direct Select is blocked by RLS for non-team members)
+            const { data, error } = await supabase
+                .rpc('get_shared_event', { slug_param: slug });
+
+            if (error || !data || (Array.isArray(data) && data.length === 0)) {
                 setError('Event not found or is no longer public.');
             } else {
-                setEvent(data);
+                // RPC returns an array, take the first item
+                setEvent(Array.isArray(data) ? data[0] : data);
             }
             setLoading(false);
         }
